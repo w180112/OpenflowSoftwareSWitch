@@ -1,0 +1,20 @@
+language: C
+sudo: false
+
+branches:
+  only:
+  - master
+
+compiler:
+  - gcc
+
+os:
+  - linux
+
+before_install:
+  - cd lib/com_util && make
+  - cd ../libbridge && make 
+  - cd ../..
+
+script:
+  - make

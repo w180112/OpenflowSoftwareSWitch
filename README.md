@@ -1,8 +1,8 @@
-# OpenFlow protocol agent implementation
+# OpenFlow protocol software switch implementation
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-This is a minimal OpenFlow protocol based software switch implementation in C.
+This is a small OpenFlow protocol based software switch implementation in C.
 
 ## System required:
 
@@ -39,7 +39,7 @@ To remove the binary files
 
 ## Test environment:
 
-1. CentOS 7.6 and AMD Ryzen 2700, 64GB ram desktop
+1. CentOS 7.6 and AMD EPYC 7401P, 128GB ram server
 2. Raspbain Feb. 2020 on RaspberryPi 4B v1.2
 3. Can connect to Ryu/ONOS/OpenDaylight SDN controller
 
