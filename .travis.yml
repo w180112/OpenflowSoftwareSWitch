@@ -11,10 +11,5 @@ compiler:
 os:
   - linux
 
-before_install:
-  - cd lib/com_util && make
-  - cd ../libbridge && make 
-  - cd ../..
-
 script:
   - make
