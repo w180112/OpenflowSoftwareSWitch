@@ -14,7 +14,9 @@ STATUS find_flow(pkt_info_t pkt_info)
 	for(int i=0; i<256; i++) {
 		max_pri = (max_pri > flow[i].priority) ? max_pri : flow[i].priority;
 		void *cur;
-		for(cur=(void *)&flow;;) {
+		for(cur=(void *)&flow[i];;) {
+			if (flow->next == NULL)
+				break;
 			if ((ret = flow_type_cmp(pkt_info,&cur,flow[i].type)) == FALSE)
 				break;
 			else if (ret == END) {
@@ -24,7 +26,7 @@ STATUS find_flow(pkt_info_t pkt_info)
 		}
 	}
 
-	return TRUE;
+	return FALSE;
 }
 
 uint8_t find_index(U8 *info, int len)

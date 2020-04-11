@@ -39,7 +39,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 	tDP_MSG *msg;
 	struct ethhdr *eth_hdr;
 	
-	if (mail->len > ETH_MTU) {
+	if (mail->len > ETH_MTU+6) {
 	    DBG_OFP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
 	    return ERROR;
 	}
@@ -47,7 +47,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 	msg = (tDP_MSG *)(mail->refp);
 	mu = (U8 *)(msg->buffer);
 	mulen = (mail->len) - (sizeof(int) + sizeof(uint16_t));
-	PRINT_MESSAGE(mu,mulen);
+	//PRINT_MESSAGE(mu,mulen);
 
 	eth_hdr = (struct ethhdr *)mu;
 	if (eth_hdr->h_proto == htons(ETH_P_IP)) {

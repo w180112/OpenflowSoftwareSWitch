@@ -18,10 +18,10 @@ void dp(tIPC_ID dpQid)
 	int 			ret;
 
 	for(;;) {
-		printf("\n===============================================\n");
-		//printf("%s> waiting for ipc_rcv2() ...\n",CODE_LOCATION);
+		//printf("\n===============================================\n");
+		//printf("%s> waiting for ipc_rcv2() ...\n", "dp.c");
 	    if (ipc_rcv2(dpQid,&mbuf,&msize) == ERROR) {
-	    	//printf("\n%s> ipc_rcv2 error ...\n",CODE_LOCATION);
+	    	printf("\n%s> ipc_rcv2 error ...\n","dp.c");
 	    	continue;
 	    }
 	    

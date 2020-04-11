@@ -236,7 +236,7 @@ STATUS dp_send2mailbox(U8 *mu, int mulen)
    	 	}
 	}
 	
-	if (mulen > ETH_MTU) {
+	if (mulen > ETH_MTU+6) {
 	 	printf("Incoming frame length(%d) is too lmaile!\n",mulen);
 		return ERROR;
 	}

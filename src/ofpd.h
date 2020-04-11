@@ -16,7 +16,7 @@
 #define ETH_MTU					1514
 #define TEST_PORT_ID			1
 
-#define IF_NAME 				"wlan0"
+#define IF_NAME 				"enp1s0"
 #define	MIN_FRAME_SIZE			64
 #define	MAX_QUE_EVT_CNT			(MBOX_QUE_SIZE/2)
 #define _PBM(port)				(1<<(port-1))
