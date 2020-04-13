@@ -13,10 +13,11 @@
 #include 		"ofp_asyn.h"
 #include 		"ofp_ctrl2sw.h"
 #include 		"ofp_oxm.h"
+#include		"dp.h"
 #include 		<unistd.h>
 #include 		<signal.h>
 
-void OFP_encode_packet_in(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
+void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 void OFP_encode_back_to_host(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
 STATUS insert_node(host_learn_t **head, host_learn_t *node);
 host_learn_t *find_node(host_learn_t *head, uint32_t buffer_id);
@@ -52,12 +53,6 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	mu = (U8 *)(msg->buffer);
 	mulen = (mail->len) - (sizeof(int) + 1);
 
-
-	if (msg->type == DRIV_DP) {
-		OFP_encode_packet_in(port_ccb, mu, mulen);
-		port_ccb->event = E_PACKET_IN;
-		return TRUE;
-	}
 	if (msg->type == DRIV_FAIL) {
 		kill(tmr_pid,SIGINT);
         kill(ofp_cp_pid,SIGINT);
@@ -106,8 +101,18 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 
 /*============================== ENCODING ===============================*/
 
-void OFP_encode_packet_in(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) {
-	static int buffer_id = 1;
+void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb) {
+	U16	mulen;
+	U8	*mu;
+	tDP2OFP_MSG *msg;
+	int buffer_id;
+
+	msg = (tDP2OFP_MSG *)(mail->refp);
+	//ofp_ports[0].sockfd = msg->sockfd;
+	mu = (U8 *)(msg->buffer);
+	mulen = (mail->len) - sizeof(int);
+	buffer_id = msg->id;
+
 	uint16_t ofp_match_length = 0; 
 	uint32_t port_no = htonl(0x1);
 
@@ -139,7 +144,7 @@ void OFP_encode_packet_in(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) {
 	memcpy(port_ccb->ofpbuf+sizeof(ofp_packet_in_t)+sizeof(uint32_t)+6,mu,mulen);
 	port_ccb->ofpbuf_len = mulen + sizeof(ofp_packet_in_t) + 2 + 4 + sizeof(uint32_t);
 	printf("----------------------------------\nencode packet in\n");
-
+#if 0 
 	// use linked list instead
 	host_learn_t *node = malloc(sizeof(host_learn_t));
 	memcpy(node->dst_mac,mu,MAC_ADDR_LEN);
@@ -150,6 +155,7 @@ void OFP_encode_packet_in(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) {
 	node->next = NULL;
 	insert_node(&(port_ccb->head),node);
 	buffer_id++;
+#endif
 }
 
 void OFP_encode_back_to_host(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) 

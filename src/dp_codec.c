@@ -34,7 +34,7 @@ extern STATUS find_flow(pkt_info_t pkt_info);
  *****************************************************/
 STATUS DP_decode_frame(tOFP_MBX *mail)
 {
-	U16	mulen;
+	//U16	mulen;
 	U8	*mu;
 	tDP_MSG *msg;
 	struct ethhdr *eth_hdr;
@@ -46,7 +46,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 	
 	msg = (tDP_MSG *)(mail->refp);
 	mu = (U8 *)(msg->buffer);
-	mulen = (mail->len) - (sizeof(int) + sizeof(uint16_t));
+	//mulen = (mail->len) - (sizeof(int) + sizeof(uint16_t));
 	//PRINT_MESSAGE(mu,mulen);
 
 	eth_hdr = (struct ethhdr *)mu;

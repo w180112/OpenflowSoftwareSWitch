@@ -34,6 +34,7 @@ extern int			ofp_io_fds[2];
 extern int 			DP_SOCK_INIT(char *ifname, dp_io_fds_t **dp_io_fds_head);
 extern void 		sockd_dp(dp_io_fds_t *dp_io_fds_head);
 extern void 		dp(tIPC_ID dpQid);
+extern void 		OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 
 pid_t ofp_cp_pid;
 pid_t ofp_dp_pid;
@@ -161,7 +162,7 @@ int main(int argc, char **argv)
 	
 	if (ofpdInit() < 0)
 		return -1;
-	if (dp_init()< 0)
+	if (dp_init() < 0)
 		return -1;
 	if ((ret=br_init()) != 0) {
 		perror("bridge init failed:");
@@ -179,7 +180,7 @@ int main(int argc, char **argv)
    		ofp_sockd_dp();
     }*/
 	
-    signal(SIGINT,OFP_bye);
+    signal(SIGINT, OFP_bye);
 	ofp_ports[0].sockfd = ofp_io_fds[0];
     OFP_FSM(&ofp_ports[0], E_START);
     
@@ -213,16 +214,22 @@ int main(int argc, char **argv)
 		
 		case IPC_EV_TYPE_CLI:
 			mail = (tOFP_MBX*)mbuf.mtext;
-			cli_2_main = (cli_2_main_t*)(mail->refp);
+			cli_2_main = (cli_2_main_t *)(mail->refp);
 			if (cli_2_main->opcode == ADD_IF) {
-				printf("<%d\n", __LINE__);
-				DP_SOCK_INIT(cli_2_main->ifname,&dp_io_fds_head);
+				//printf("<%d\n", __LINE__);
+				DP_SOCK_INIT(cli_2_main->ifname, &dp_io_fds_head);
 				printf("dp_io_fds_head = %x\n", dp_io_fds_head);
-				printf("<%d\n", __LINE__);
 				if (dp_thread == 0) {
-					pthread_create(&dp_thread,NULL,(void *)sockd_dp,dp_io_fds_head);
+					pthread_create(&dp_thread, NULL, (void *)sockd_dp, dp_io_fds_head);
     			}
 			}
+			break;
+		case IPC_EV_TYPE_DP:
+			mail = (tOFP_MBX*)mbuf.mtext;
+			OFP_encode_packet_in(mail, &ofp_ports[0]);
+			ofp_ports[0].event = E_PACKET_IN;
+			puts("recv pkt_in");
+			OFP_FSM(&ofp_ports[0], ofp_ports[0].event);
 			break;
 		default:
 		    ;

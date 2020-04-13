@@ -30,6 +30,8 @@ enum {
 	IPC_EV_TYPE_OAM,
 	IPC_EV_TYPE_REG,
 	IPC_EV_TYPE_MAP,
+	IPC_EV_TYPE_OFP,
+	IPC_EV_TYPE_DP,
 } IPC_TYPE;
 
 typedef struct {
