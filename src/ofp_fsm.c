@@ -53,7 +53,9 @@ tOFP_STATE_TBL  ofp_fsm_tbl[] = {
 
 { S_ESTABLISHED,    E_PACKET_IN,            S_ESTABLISHED,  { A_send_packet_in, 0 }},
 
-{ S_ESTABLISHED,    E_FLOW_MOD,            	S_ESTABLISHED,  { A_send_to_host, 0 }},
+{ S_ESTABLISHED,    E_FLOW_MOD,            	S_ESTABLISHED,  { /*A_send_to_dp,*/ 0 }},
+
+{ S_ESTABLISHED,    E_PACKET_OUT,           S_ESTABLISHED,  { /*A_send_to_dp,*/ 0 }},
 
 { S_INVALID, 0 }
 };

@@ -54,11 +54,11 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	mulen = (mail->len) - (sizeof(int) + 1);
 
 	if (msg->type == DRIV_FAIL) {
-		kill(tmr_pid,SIGINT);
-        kill(ofp_cp_pid,SIGINT);
-        kill(ofp_dp_pid,SIGINT);
+		kill(tmr_pid,SIGTERM);
+        kill(ofp_cp_pid,SIGTERM);
+        //kill(ofp_dp_pid,SIGINT);
 		//kill(getpid(),SIGINT);
-		return ERROR;
+		return FALSE;
 	}
     //PRINT_MESSAGE(mu,mulen);
 	switch(((ofp_header_t *)mu)->type) {
@@ -84,7 +84,7 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	case OFPT_FLOW_MOD:
 		port_ccb->event = E_FLOW_MOD;
 		printf("----------------------------------\nrecv flow mod\n");
-		OFP_encode_back_to_host(port_ccb, mu, mulen);
+		//OFP_encode_back_to_host(port_ccb, mu, mulen);
 		PRINT_MESSAGE(mu, mulen);
 		break;
 	case OFPT_PACKET_OUT:

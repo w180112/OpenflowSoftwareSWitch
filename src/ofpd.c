@@ -207,8 +207,23 @@ int main(int argc, char **argv)
 			mail = (tOFP_MBX*)mbuf.mtext;
 			//ofp_ports[port].port = TEST_PORT_ID;
 			//DBG_OFP(DBGLVL1,&ofp_ports[0],"<-- Rx ofp message\n");
-			if (OFP_decode_frame(mail, &ofp_ports[0]) == ERROR)
+			if ((ret=OFP_decode_frame(mail, &ofp_ports[0])) == ERROR)
 				continue;
+			else if (ret == FALSE) {
+				for(;;) {
+					sleep(1);
+					if (ofpdInit() == 0)
+						break;
+				}
+				if ((ofp_cp_pid=fork()) == 0) {
+					signal(SIGINT,SIG_DFL);
+   					ofp_sockd_cp();
+				}
+				ofp_ports[0].sockfd = ofp_io_fds[0];
+				OFP_FSM(&ofp_ports[0], E_START);
+				puts("====================Restart connection.====================");
+				continue;
+			}
 			OFP_FSM(&ofp_ports[0], ofp_ports[0].event);
 			break;
 		

@@ -201,6 +201,8 @@ void sockd_dp(dp_io_fds_t *dp_io_fds_head)
 				continue;
     		}
 			else {
+				if (*(U16 *)(msg.buffer+34) == 0xFD19 || *(U16 *)(msg.buffer+36) == 0xFD19)
+					continue;
     			msg.sockfd = dp_io_fds_head->fd;
 				msg.port_no = dp_io_fds_head->port_no;
 			}
