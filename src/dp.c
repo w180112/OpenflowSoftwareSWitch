@@ -57,11 +57,25 @@ void dp(tIPC_ID dpQid)
 					id = 1;
 				tDP2OFP_MSG msg;
 				msg.id = id;
-				memcpy(msg.buffer,(U8 *)(((tDP_MSG *)(mail->refp))->buffer),(mail->len) - (sizeof(int) + sizeof(uint16_t)));
-				dp_send2ofp((U8 *)&msg,(mail->len) - (sizeof(int) + sizeof(uint16_t)) + sizeof(int));
+				memcpy(msg.buffer, (U8 *)((tDP_MSG *)(mail->refp)), (mail->len));
+				dp_send2ofp((U8 *)&msg, (mail->len) + sizeof(int));
 			}
 			else {
-				puts("send to dp port");
+				//puts("send to dp port");
+			}
+			break;
+		case IPC_EV_TYPE_OFP:
+			mail = (tOFP_MBX*)mbuf.mtext;
+			if (*(mail->refp) == FLOWMOD) {
+				flowmod_info_t flowmod_info;
+				memcpy(&flowmod_info, mail->refp, sizeof(flowmod_info_t));
+				PRINT_MESSAGE(&(flowmod_info.action_info),sizeof(pkt_info_t)*10);
+				//printf("flowmod_info action len = %u\n", flowmod_info.action_info[0].max_len);
+				//free(flowmod_info.action_info);
+			}
+			else if (*(mail->refp) == PACKET_OUT) {
+				puts("recv pkt_out from ofp");
+				// TODO: process pkt_out
 			}
 			break;
 		default:
@@ -88,7 +102,7 @@ STATUS dp_send2ofp(U8 *mu, int mulen)
    	 	}
 	}
 	
-	if (mulen > ETH_MTU+6) {
+	if (mulen > MSG_LEN) {
 	 	printf("Incoming frame length(%d) is too lmaile!\n",mulen);
 		return ERROR;
 	}

@@ -7,6 +7,7 @@
 #define _DP_H_
 
 #define ETH_MTU					1514
+#define MSG_LEN 				1524
 #define JUMBO_MTU				9000
 
 /*-----------------------------------------
@@ -23,7 +24,7 @@ typedef struct {
  *----------------------------------------*/
 typedef struct {
 	int   			id;
-	char          	buffer[ETH_MTU];
+	char          	buffer[MSG_LEN];
 }tDP2OFP_MSG;
 
 #endif

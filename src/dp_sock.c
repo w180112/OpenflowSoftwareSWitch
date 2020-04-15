@@ -103,7 +103,7 @@ int DP_SOCK_INIT(char *ifname, dp_io_fds_t **dp_io_fds_head)
 	new_node->port_no = port_no;
 	new_node->next = *cur_io_fd;
 	*cur_io_fd = new_node;
-	printf("dp_io_fds_head = %x\n", *dp_io_fds_head);
+	printf("cur_io_fd fd = %x\n", (*cur_io_fd)->fd);
 	max_fd = fd;
 	port_no++;
 
@@ -190,28 +190,31 @@ void sockd_dp(dp_io_fds_t *dp_io_fds_head)
    		/*----------------------------------------------------------------------
        	 * rx data from "LOC_sockAddr" to "LOC_fd" in Blocking mode
      	 *---------------------------------------------------------------------*/
-    	if (FD_ISSET(dp_io_fds_head->fd,&dp_io_ready)) {
-			//printf("<%d\n", __LINE__);
-    		rxlen = recvfrom(dp_io_fds_head->fd,msg.buffer,ETH_MTU,0,NULL,NULL);
-			//printf("<%d\n", __LINE__);
-    		if (rxlen <= 0) {
-      			printf("Error! recvfrom(): len <= 0 at DP\n");
-				msg.sockfd = 0;
-				msg.port_no = 0;
-				continue;
-    		}
-			else {
-				if (*(U16 *)(msg.buffer+34) == 0xFD19 || *(U16 *)(msg.buffer+36) == 0xFD19)
+		for (cur_io_fd=dp_io_fds_head; cur_io_fd!=NULL; cur_io_fd=cur_io_fd->next) {
+    		if (FD_ISSET(cur_io_fd->fd,&dp_io_ready)) {
+				//printf("<%d\n", __LINE__);
+    			rxlen = recvfrom(cur_io_fd->fd,msg.buffer,ETH_MTU,0,NULL,NULL);
+				//printf("<%d\n", __LINE__);
+    			if (rxlen <= 0) {
+      				printf("Error! recvfrom(): len <= 0 at DP\n");
+					msg.sockfd = 0;
+					msg.port_no = 0;
 					continue;
-    			msg.sockfd = dp_io_fds_head->fd;
-				msg.port_no = dp_io_fds_head->port_no;
-			}
-			//PRINT_MESSAGE((char*)msg.buffer, rxlen);
-   			/*printf("=========================================================\n");
-			printf("rxlen=%d\n",rxlen);*/
+    			}
+				else {
+					if (*(U16 *)(msg.buffer+34) == 0xFD19 || *(U16 *)(msg.buffer+36) == 0xFD19)
+						continue;
+    				msg.sockfd = cur_io_fd->fd;
+					msg.port_no = cur_io_fd->port_no;
+					//printf("port id = %u, fd = %d\n", msg.port_no, msg.sockfd);
+				}
+				//PRINT_MESSAGE((char*)msg.buffer, rxlen);
+   				/*printf("=========================================================\n");
+				printf("rxlen=%d\n",rxlen);*/
     		
-    		dp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+2);
-   		} /* if select */
+    			dp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+2);
+   			} /* if select */
+		}
    	} /* for */
 	#endif
 }
@@ -238,7 +241,7 @@ STATUS dp_send2mailbox(U8 *mu, int mulen)
    	 	}
 	}
 	
-	if (mulen > ETH_MTU+6) {
+	if (mulen > MSG_LEN) {
 	 	printf("Incoming frame length(%d) is too lmaile!\n",mulen);
 		return ERROR;
 	}

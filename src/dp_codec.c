@@ -17,9 +17,9 @@
 #include 		"ofp_oxm.h"
 #include 		<unistd.h>
 
-STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr);
-STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr);
-STATUS parse_ip(struct ethhdr *eth_hdr);
+STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id);
+STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id);
+STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id);
 
 extern STATUS find_flow(pkt_info_t pkt_info);
 
@@ -39,7 +39,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 	tDP_MSG *msg;
 	struct ethhdr *eth_hdr;
 	
-	if (mail->len > ETH_MTU+6) {
+	if (mail->len > MSG_LEN) {
 	    DBG_OFP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
 	    return ERROR;
 	}
@@ -51,7 +51,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 
 	eth_hdr = (struct ethhdr *)mu;
 	if (eth_hdr->h_proto == htons(ETH_P_IP)) {
-		if (parse_ip(eth_hdr) == FALSE)
+		if (parse_ip(eth_hdr, msg->port_no) == FALSE)
 			return FALSE;
 	}
 	else if (eth_hdr->h_proto == htons(ETH_P_ARP)) {
@@ -59,6 +59,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 		memset(&pkt_info,0,sizeof(pkt_info));
 
 		memcpy(&pkt_info,eth_hdr,sizeof(struct ethhdr));
+		pkt_info.port_id = msg->port_no;
 		//TODO: save L2 payload
 
 		if (find_flow(pkt_info) == FALSE)
@@ -71,7 +72,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 	return TRUE;
 }
 
-STATUS parse_ip(struct ethhdr *eth_hdr)
+STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id)
 {
 	pkt_info_t pkt_info;
 
@@ -86,25 +87,26 @@ STATUS parse_ip(struct ethhdr *eth_hdr)
 		pkt_info.ip_proto = ip_hdr->protocol;
 		pkt_info.ip_dst = ip_hdr->daddr;
 		pkt_info.ip_src = ip_hdr->saddr;
+		pkt_info.port_id = port_id;
 
 		if (find_flow(pkt_info) == FALSE) {
 			return FALSE;
 		}
 		return TRUE;
 	case IPPROTO_TCP:
-		if (parse_tcp(eth_hdr,ip_hdr) == FALSE)
-			return FALSE;
+		if (parse_tcp(eth_hdr,ip_hdr, port_id) == FALSE)
+			return ERROR;
 		return TRUE;
 	case IPPROTO_UDP:
-		if (parse_udp(eth_hdr,ip_hdr) == FALSE)
-			return FALSE;
+		if (parse_udp(eth_hdr,ip_hdr, port_id) == FALSE)
+			return ERROR;
 		return TRUE;
 	default:
 		return FALSE;
 	}
 }
 
-STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr)
+STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id)
 {
 	pkt_info_t pkt_info;
 	struct tcphdr *tcp_hdr = (struct tcphdr *)(ip_hdr + 1);
@@ -115,6 +117,7 @@ STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr)
 	pkt_info.ip_src = ip_hdr->saddr;
 	pkt_info.dst_port = tcp_hdr->dest;
 	pkt_info.src_port = tcp_hdr->source;
+	pkt_info.port_id = port_id;
 
 	if (find_flow(pkt_info) == FALSE) {
 		return FALSE;
@@ -122,7 +125,7 @@ STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr)
 	return TRUE;
 }
 
-STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr)
+STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id)
 {
 	pkt_info_t pkt_info;
 	struct udphdr *udp_hdr = (struct udphdr *)(ip_hdr + 1);
@@ -133,6 +136,7 @@ STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr)
 	pkt_info.ip_src = ip_hdr->saddr;
 	pkt_info.dst_port = udp_hdr->dest;
 	pkt_info.src_port = udp_hdr->source;
+	pkt_info.port_id = port_id;
 
 	if (find_flow(pkt_info) == FALSE) {
 		return FALSE;

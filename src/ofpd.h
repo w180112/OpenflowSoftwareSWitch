@@ -9,11 +9,13 @@
 #include "ofp_common.h"
 #include "ofp_asyn.h"
 #include "ofp_ctrl2sw.h"
+#include "dp_flow.h"
 #include <ip_codec.h>
 
 #define OFP_Q_KEY				0x0b00
 #define DP_Q_KEY				0x0c00
 #define ETH_MTU					1514
+#define MSG_LEN					1524
 #define TEST_PORT_ID			1
 
 #define IF_NAME 				"enp1s0"
@@ -59,6 +61,27 @@ typedef struct host_learn {
 	struct host_learn *next;
 }host_learn_t;
 
+typedef struct flowmod_info {
+	uint8_t	msg_type;
+	U16		msg_len; 
+    uint64_t cookie;
+    uint8_t table_id;
+    uint8_t command;
+    uint16_t idle_timeout; 
+    uint16_t hard_timeout;
+    uint16_t priority;
+    uint32_t buffer_id;
+    uint32_t out_port; 
+    uint32_t out_group;
+    pkt_info_t	match_info;
+	pkt_info_t	action_info[10];
+}flowmod_info_t;
+
+enum {
+	FLOWMOD = 0,
+	PACKET_OUT,
+};
+
 //========= The structure of port ===========
 typedef struct {
 	BOOL		enable;
@@ -85,6 +108,7 @@ typedef struct {
 	ofp_header_t ofp_header;
 	ofp_multipart_t ofp_multipart;
 	ofp_packet_in_t ofp_packet_in;
+	flowmod_info_t flowmod_info;
 	U8 			ofpbuf[ETH_MTU];
 	uint16_t 	ofpbuf_len;
 	host_learn_t *head;
@@ -102,7 +126,7 @@ extern U8			ofp_max_msg_per_query;
  *----------------------------------------*/
 typedef struct {
 	U16  			type;
-	U8          	refp[ETH_MTU+6];
+	U8          	refp[MSG_LEN];
 	int	        	len;
 }tOFP_MBX;
 
@@ -112,7 +136,7 @@ typedef struct {
 typedef struct {
 	U8  			type;
 	int 			sockfd;
-	char          	buffer[ETH_MTU];
+	char          	buffer[MSG_LEN];
 }tOFP_MSG;
 
 typedef enum {

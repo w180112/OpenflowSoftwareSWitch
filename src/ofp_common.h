@@ -145,8 +145,12 @@ enum ofp_match_type {
 };
 
 
-/* Action structure for OFPAT_OUTPUT, which sends packets out ’port’. * When the ’port’ is the OFPP_CONTROLLER, ’max_len’ indicates the max * number of bytes to send. A ’max_len’ of zero means no bytes of the * packet should be sent. A ’max_len’ of OFPCML_NO_BUFFER means that
-* the packet is not buffered and the complete packet is to be sent to * the controller. */
+/* Action structure for OFPAT_OUTPUT, which sends packets out ’port’. 
+ * When the ’port’ is the OFPP_CONTROLLER, ’max_len’ indicates the max 
+ * number of bytes to send. A ’max_len’ of zero means no bytes of the 
+ * packet should be sent. A ’max_len’ of OFPCML_NO_BUFFER means that
+ * the packet is not buffered and the complete packet is to be sent to 
+ * the controller. */
 typedef struct ofp_action_output { 
     uint16_t type; /* OFPAT_OUTPUT. */
     uint16_t len; /* Length is 16. */
@@ -155,6 +159,12 @@ typedef struct ofp_action_output {
     uint8_t pad[6]; /* Pad to 64 bits. */
 }ofp_action_output_t;
 OFP_ASSERT(sizeof(struct ofp_action_output) == 16);
+
+enum ofp_controller_max_len { 
+    OFPCML_MAX = 0xffe5, /* maximum max_len value which can be used to request a specific byte length. */
+    OFPCML_NO_BUFFER = 0xffff /* indicates that no buffering should be applied and the whole packet is to be sent to the controller. */
+};
+ 
 
 /* Instruction structure for OFPIT_WRITE/APPLY/CLEAR_ACTIONS */
 typedef struct ofp_instruction_actions {

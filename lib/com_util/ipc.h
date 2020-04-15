@@ -51,7 +51,7 @@ typedef struct {
 
 typedef struct {
 	long  	DA;
-    U8  	mtext[1524];
+    U8  	mtext[1530];
     long   	SA;
 } tMBUF;
 

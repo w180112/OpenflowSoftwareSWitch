@@ -16,7 +16,8 @@
 
 
 enum {
-	DST_MAC = 1,
+	PORT = 1,
+	DST_MAC,
 	SRC_MAC,
 	ETHER_TYPE,
 	DST_IP,
@@ -31,6 +32,12 @@ typedef struct flow {
 	uint8_t type;
 	void *next;
 }flow_t;
+
+typedef struct port {
+	uint16_t port_id;
+	uint8_t type;
+	void *next;
+}port_t;
 
 typedef struct dst_mac {
 	unsigned char dst_mac[ETH_ALEN];
@@ -83,6 +90,7 @@ typedef struct src_port {
 }src_port_t;
 
 typedef struct pkt_info {
+	uint16_t port_id;
 	unsigned char dst_mac[ETH_ALEN];
 	unsigned char src_mac[ETH_ALEN];
 	uint16_t ether_type;
@@ -91,6 +99,8 @@ typedef struct pkt_info {
 	uint8_t ip_proto;
 	uint8_t dst_port;
 	uint8_t src_port;
+	uint16_t max_len; /* for OFPCML_MAX or OFPCML_NO_BUFFER or 0 */
+	BOOL	is_tail;
 }pkt_info_t;
 
 #endif

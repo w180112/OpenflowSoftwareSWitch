@@ -31,7 +31,7 @@ static STATUS   A_clear_query_cnt(tOFP_PORT*);
 static STATUS   A_stop_query_tmr(tOFP_PORT*);
 static STATUS   A_query_tmr_expire(tOFP_PORT*);
 static STATUS   A_send_packet_in(tOFP_PORT*);
-static STATUS   A_send_to_host(tOFP_PORT*);
+static STATUS   A_send_to_dp(tOFP_PORT*);
 
 tOFP_STATE_TBL  ofp_fsm_tbl[] = { 
 /*//////////////////////////////////////////////////////////////////////////////////
@@ -53,7 +53,7 @@ tOFP_STATE_TBL  ofp_fsm_tbl[] = {
 
 { S_ESTABLISHED,    E_PACKET_IN,            S_ESTABLISHED,  { A_send_packet_in, 0 }},
 
-{ S_ESTABLISHED,    E_FLOW_MOD,            	S_ESTABLISHED,  { /*A_send_to_dp,*/ 0 }},
+{ S_ESTABLISHED,    E_FLOW_MOD,            	S_ESTABLISHED,  { A_send_to_dp, 0 }},
 
 { S_ESTABLISHED,    E_PACKET_OUT,           S_ESTABLISHED,  { /*A_send_to_dp,*/ 0 }},
 
@@ -172,7 +172,7 @@ STATUS A_send_feature_reply(tOFP_PORT *port_ccb)
 {
 	unsigned char buffer[256];
 	ofp_switch_features_t ofp_switch_features;
-	struct ifaddrs *ifaddr;
+	//struct ifaddrs *ifaddr;
 	//struct ifaddrs *ifa;
 
 	ofp_switch_features.ofp_header.version = 0x04;
@@ -185,16 +185,16 @@ STATUS A_send_feature_reply(tOFP_PORT *port_ccb)
 	uint64_t tmp;
 	char *eth_name = IF_NAME;
 
-	if (getifaddrs(&ifaddr) == -1) {
+	/*if (getifaddrs(&ifaddr) == -1) {
     	perror("getifaddrs");
     	return -1;
-  	}
+  	}*/
     fd = socket(AF_INET, SOCK_DGRAM, 0);
  	ifr.ifr_addr.sa_family = AF_INET;
     strncpy(ifr.ifr_name,eth_name,IFNAMSIZ-1);
  	ioctl(fd,SIOCGIFHWADDR,&ifr);
     close(fd);
-	freeifaddrs(ifaddr);
+	//freeifaddrs(ifaddr);
 	ofp_switch_features.datapath_id = 0x0;
 	for(int i=5; i>=0; i--) {
         tmp = ifr.ifr_hwaddr.sa_data[i];
@@ -275,10 +275,10 @@ STATUS A_send_multipart_reply(tOFP_PORT *port_ccb)
 	ofp_multipart_t ofp_multipart;
 	struct ofp_port ofp_port_desc;
 	struct ifaddrs *ifaddr; 
-	//struct ifaddrs *ifa;
-	U8 buf[256];
+	struct ifaddrs *ifa;
+	U8 buf[1024];
 	uintptr_t buf_ptr;
-	//int i;
+	int i;
 
 	if (getifaddrs(&ifaddr) == -1) {
     	perror("getifaddrs");
@@ -292,7 +292,7 @@ STATUS A_send_multipart_reply(tOFP_PORT *port_ccb)
 
 	memset(&ofp_port_desc,0,sizeof(struct ofp_port));
 
-#if 1
+#if 0
 	ofp_port_desc.port_no = htonl(1);
 	strcpy(ofp_port_desc.name,IF_NAME);
 	int fd;
@@ -308,26 +308,34 @@ STATUS A_send_multipart_reply(tOFP_PORT *port_ccb)
 	buf_ptr += sizeof(struct ofp_port);
 	ofp_multipart.ofp_header.length += sizeof(struct ofp_port);
 #else
-	for(i=0,ifa=ifaddr; ifa != NULL; i++, ifa=ifa->ifa_next) {
-		if (((uintptr_t)(ifa->ifa_addr) & 0x00000000ffffffff) == 0 || ifa->ifa_addr->sa_family != AF_PACKET) 
-			continue;
+	i = 0;
+	for(ifa=ifaddr; ifa != NULL; ifa=ifa->ifa_next) {
+		ifa->ifa_addr = (struct sockaddr *)((uintptr_t)(ifa->ifa_addr) >> 32);
+ 		//if (((uintptr_t)(ifa->ifa_addr) & 0x00000000ffffffff) == 0 || ifa->ifa_addr->sa_family != AF_PACKET) 
+ 		if (ifa->ifa_addr == NULL)
+ 			continue;
+ 		if (ifa->ifa_addr->sa_family != AF_PACKET)	
+		 	continue;
+		i++;
 		ofp_port_desc.port_no = htonl(i);
 		strcpy(ofp_port_desc.name,ifa->ifa_name);
+		
 		int fd;
     	struct ifreq ifr;
- 
+
     	fd = socket(AF_INET, SOCK_DGRAM, 0);
  		ifr.ifr_addr.sa_family = AF_INET;
     	strncpy(ifr.ifr_name,ifa->ifa_name,IFNAMSIZ-1);
+		
  		ioctl(fd,SIOCGIFHWADDR,&ifr);
     	close(fd);
     	memcpy(ofp_port_desc.hw_addr,(unsigned char *)ifr.ifr_hwaddr.sa_data,OFP_ETH_ALEN);
-		memcpy(buf+buf_ptr,&ofp_port_desc,sizeof(struct ofp_port));
+		memcpy((U8 *)buf_ptr,&ofp_port_desc,sizeof(struct ofp_port));
+		
 		buf_ptr += sizeof(struct ofp_port);
 		ofp_multipart.ofp_header.length += sizeof(struct ofp_port);
 	}
 #endif
-
 	uint16_t length = ofp_multipart.ofp_header.length;
 	ofp_multipart.ofp_header.length = htons(ofp_multipart.ofp_header.length);
 	memcpy(buf, &ofp_multipart, sizeof(ofp_multipart_t));
@@ -342,6 +350,7 @@ STATUS A_send_multipart_reply(tOFP_PORT *port_ccb)
  *********************************************************************/
 STATUS A_send_packet_in(tOFP_PORT *port_ccb)	
 {
+	printf("port_ccb->ofpbuf_len = %u\n", port_ccb->ofpbuf_len);
 	drv_xmit(port_ccb->ofpbuf, port_ccb->ofpbuf_len, ofp_io_fds[0]);
 	printf("send packet_in message\n");
 
@@ -352,10 +361,31 @@ STATUS A_send_packet_in(tOFP_PORT *port_ccb)
  * A_send_to_host: 
  *
  *********************************************************************/
-STATUS A_send_to_host(tOFP_PORT *port_ccb)	
+STATUS A_send_to_dp(tOFP_PORT *port_ccb)	
 {
-	drv_xmit(port_ccb->ofpbuf, port_ccb->ofpbuf_len, ofp_io_fds[1]);
-	printf("send back to host\n");
+	tOFP_MBX mail;
+	U16 mulen = port_ccb->flowmod_info.msg_len;
+	U8 *mu = (U8 *)&(port_ccb->flowmod_info);
+
+    if (dpQid == -1) {
+		if ((dpQid=msgget(DP_Q_KEY,0600|IPC_CREAT)) < 0) {
+			printf("send> Oops! dpQ(key=0x%x) not found\n",DP_Q_KEY);
+   	 	}
+	}
+	
+	if (mulen > MSG_LEN) {
+	 	printf("Incoming frame length(%d) is too lmaile!\n",mulen);
+		return ERROR;
+	}
+
+	mail.len = mulen;
+	memcpy(mail.refp, mu, mulen); /* mail content will be copied into mail queue */
+	
+	//printf("dp_send2mailbox(dp_sock.c %d): mulen=%d\n",__LINE__,mulen);
+	mail.type = IPC_EV_TYPE_OFP;
+	ipc_sw(dpQid, &mail, sizeof(mail), -1);
+	memset(&(port_ccb->flowmod_info), 0, sizeof(flowmod_info_t));
+	printf("send msg to dp\n");
 
 	return TRUE;
 }

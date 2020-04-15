@@ -41,6 +41,13 @@ uint8_t find_index(U8 *info, int len)
 STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
 {
 	switch(type) {
+		case PORT:
+			if (BYTES_CMP((U8 *)pkt_info.port_id,(U8 *)&(((port_t *)(*cur))->port_id),2) == FALSE)
+				return FALSE;
+			if (((port_t *)(*cur))->next == NULL)
+				return END;
+			*cur = (void *)(((port_t *)(*cur))->next);
+			break;
 		case DST_MAC:
 			if (BYTES_CMP((U8 *)pkt_info.dst_mac,(U8 *)((dst_mac_t *)(*cur))->dst_mac,ETH_ALEN) == FALSE)
 				return FALSE;
