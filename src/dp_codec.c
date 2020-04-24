@@ -95,7 +95,7 @@ STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id)
 		return TRUE;
 	case IPPROTO_TCP:
 		if (parse_tcp(eth_hdr,ip_hdr, port_id) == FALSE)
-			return ERROR;
+			return FALSE;
 		return TRUE;
 	case IPPROTO_UDP:
 		if (parse_udp(eth_hdr,ip_hdr, port_id) == FALSE)

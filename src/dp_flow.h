@@ -28,8 +28,16 @@ enum {
 };
 
 typedef struct flow {
+	uint64_t cookie;
 	uint16_t priority;
+	uint8_t table_id;
+    uint16_t idle_timeout; 
+    uint16_t hard_timeout;
+    uint32_t buffer_id;
+    uint32_t out_port; 
+    uint32_t out_group;
 	uint8_t type;
+	BOOL	is_exist;
 	void *next;
 }flow_t;
 
@@ -90,6 +98,7 @@ typedef struct src_port {
 }src_port_t;
 
 typedef struct pkt_info {
+	uint8_t type;
 	uint16_t port_id;
 	unsigned char dst_mac[ETH_ALEN];
 	unsigned char src_mac[ETH_ALEN];

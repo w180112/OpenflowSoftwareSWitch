@@ -73,8 +73,9 @@ typedef struct flowmod_info {
     uint32_t buffer_id;
     uint32_t out_port; 
     uint32_t out_group;
-    pkt_info_t	match_info;
-	pkt_info_t	action_info[10];
+    pkt_info_t	match_info[20];
+	pkt_info_t	action_info[20];
+	BOOL 		is_tail;
 }flowmod_info_t;
 
 enum {
