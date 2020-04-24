@@ -12,7 +12,8 @@ typedef struct q {
 flow_t flow[256];
 
 extern STATUS DP_decode_frame(tOFP_MBX *mail);
-extern STATUS flowmod_match_process(flowmod_info_t flowmod_info);
+extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
+extern STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
 
 void dp(tIPC_ID dpQid);
 STATUS enq_pkt_in(tOFP_MBX *mail, q_t **head, int id);
@@ -63,21 +64,26 @@ void dp(tIPC_ID dpQid)
 				puts("set to ofp");
 			}
 			else {
-				puts("send to dp port");
+				//puts("send to dp port");
 			}
 			break;
 		case IPC_EV_TYPE_OFP:
 			mail = (tOFP_MBX*)mbuf.mtext;
 			if (*(mail->refp) == FLOWMOD) {
 				flowmod_info_t flowmod_info;
+				uint32_t flow_index;
 				memset(flowmod_info.match_info, 0, sizeof(pkt_info_t)*20);
 				//PRINT_MESSAGE(mail->refp,1524);
-				PRINT_MESSAGE(flowmod_info.match_info,sizeof(pkt_info_t)*20);
+				//PRINT_MESSAGE(flowmod_info.match_info,sizeof(pkt_info_t)*20);
 				//PRINT_MESSAGE(flowmod_info.action_info,sizeof(pkt_info_t)*20);
 				memcpy(&flowmod_info, mail->refp, sizeof(flowmod_info_t));
-				if (flowmod_match_process(flowmod_info) == FALSE) {
+				if (flowmod_match_process(flowmod_info, &flow_index) == FALSE) {
 					puts("flow table is full");
 				}
+				if (flowmod_action_process(flowmod_info, flow_index) == FALSE) {
+					puts("flow table is full");
+				}
+				//printf("<%d\n", __LINE__);
 				//printf("flowmod_info action len = %u\n", flowmod_info.action_info[0].max_len);
 				//free(flowmod_info.action_info);
 			}

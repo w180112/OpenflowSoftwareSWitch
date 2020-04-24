@@ -38,11 +38,13 @@ typedef struct flow {
     uint32_t out_group;
 	uint8_t type;
 	BOOL	is_exist;
-	void *next;
+	void *next_match;
+	void *next_action;
 }flow_t;
 
 typedef struct port {
 	uint16_t port_id;
+	uint16_t max_len;
 	uint8_t type;
 	void *next;
 }port_t;
