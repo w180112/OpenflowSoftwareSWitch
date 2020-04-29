@@ -29,7 +29,7 @@ void dp(tIPC_ID dpQid)
 	q_t				*q_head = NULL;
 	int 			total_enq_node = 0;
 	int 			id = 1;
-
+	memset(flow, 0, sizeof(flow_t)*256);
 	for(;;) {
 		//printf("\n===============================================\n");
 		//printf("%s> waiting for ipc_rcv2() ...\n", "dp.c");
@@ -78,10 +78,10 @@ void dp(tIPC_ID dpQid)
 				//PRINT_MESSAGE(flowmod_info.action_info,sizeof(pkt_info_t)*20);
 				memcpy(&flowmod_info, mail->refp, sizeof(flowmod_info_t));
 				if (flowmod_match_process(flowmod_info, &flow_index) == FALSE) {
-					puts("flow table is full");
+					puts("flow table is full by match field");
 				}
 				if (flowmod_action_process(flowmod_info, flow_index) == FALSE) {
-					puts("flow table is full");
+					puts("flow table is full by action field");
 				}
 				//printf("<%d\n", __LINE__);
 				//printf("flowmod_info action len = %u\n", flowmod_info.action_info[0].max_len);

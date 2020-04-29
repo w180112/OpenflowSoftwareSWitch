@@ -245,7 +245,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 			match_len = match_len - cur->oxm_union.oxm_struct.oxm_length - sizeof(ofp_oxm_header_t);
 			cur = (ofp_oxm_header_t *)(((U8 *)cur) + cur->oxm_union.oxm_struct.oxm_length + sizeof(ofp_oxm_header_t));
 		}
-		port_ccb->flowmod_info.match_info[i].is_tail = TRUE;
+		port_ccb->flowmod_info.match_info[--i].is_tail = TRUE;
 	}
 	uint16_t padding, tmp;
 	match_len = ntohs(((ofp_flow_mod_t *)mu)->match.length);
@@ -263,7 +263,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	memset(port_ccb->flowmod_info.action_info, 0, 20*sizeof(pkt_info_t));
 	//pkt_info_t *head_action_info = NULL, *cur_action_info;
 	for(U8 *cur=(U8 *)ofp_action_header;; len+=htons(((ofp_action_header_t *)cur)->len),cur+=len,i++) {
-		if (i == 20) {
+		if (i >= 20) {
 			puts("Reach max flowmod action list, drop remaining actions");
 			break;
 		}
@@ -356,8 +356,8 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	//port_ccb->flowmod_info.action_info = head_action_info;
 	//printf("addr = %x\n", port_ccb->flowmod_info.action_info);
 	//printf("flowmod_info action len = %u\n", port_ccb->flowmod_info.action_info[i]max_len);
-	port_ccb->flowmod_info.action_info[i].is_tail = TRUE;
-	PRINT_MESSAGE(port_ccb->flowmod_info.match_info,sizeof(pkt_info_t)*20);
+	port_ccb->flowmod_info.action_info[--i].is_tail = TRUE;
+	//PRINT_MESSAGE(port_ccb->flowmod_info.match_info,sizeof(pkt_info_t)*20);
 	return TRUE;
 }
 

@@ -243,8 +243,8 @@ int main(int argc, char **argv)
 			mail = (tOFP_MBX*)mbuf.mtext;
 			OFP_encode_packet_in(mail, &ofp_ports[0]);
 			ofp_ports[0].event = E_PACKET_IN;
-			puts("recv pkt_in");
-			PRINT_MESSAGE(ofp_ports[0].ofpbuf, ofp_ports[0].ofpbuf_len);
+			//puts("recv pkt_in");
+			//PRINT_MESSAGE(ofp_ports[0].ofpbuf, ofp_ports[0].ofpbuf_len);
 			OFP_FSM(&ofp_ports[0], ofp_ports[0].event);
 			break;
 		default:

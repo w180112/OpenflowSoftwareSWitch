@@ -35,7 +35,7 @@ extern STATUS apply_flow(U8 *mu, uint32_t flow_index);
  *****************************************************/
 STATUS DP_decode_frame(tOFP_MBX *mail)
 {
-	//U16	mulen;
+	U16	mulen;
 	U8	*mu;
 	tDP_MSG *msg;
 	struct ethhdr *eth_hdr;
@@ -48,13 +48,13 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 	
 	msg = (tDP_MSG *)(mail->refp);
 	mu = (U8 *)(msg->buffer);
-	//mulen = (mail->len) - (sizeof(int) + sizeof(uint16_t));
+	mulen = (mail->len) - (sizeof(int) + sizeof(uint16_t));
 	//PRINT_MESSAGE(mu,mulen);
 
 	eth_hdr = (struct ethhdr *)mu;
 	if (eth_hdr->h_proto == htons(ETH_P_IP)) {
 		if (parse_ip(eth_hdr, msg->port_no, &flow_index) == FALSE)
-			return FALSE;
+			return ERROR;
 	}
 	else if (eth_hdr->h_proto == htons(ETH_P_ARP)) {
 		pkt_info_t pkt_info;
@@ -65,14 +65,18 @@ STATUS DP_decode_frame(tOFP_MBX *mail)
 		//TODO: save L2 payload
 
 		if (find_flow(pkt_info, &flow_index) == FALSE)
-			return FALSE;
+			return ERROR;
 	}
 	else {
-		return FALSE;
+		return ERROR;
 	}
 	//TODO: send pkt from rule
+	//puts("flow found.");
 	if (apply_flow(mu, flow_index) == FALSE)
 		return ERROR;
+	else 
+		return FALSE;
+	//PRINT_MESSAGE(mu, mulen);
 	return TRUE;
 }
 
@@ -97,14 +101,14 @@ STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id, uint32_t *flow_index)
 			return FALSE;
 		}
 		return TRUE;
-	case IPPROTO_TCP:
+	/*case IPPROTO_TCP:
 		if (parse_tcp(eth_hdr,ip_hdr, port_id, flow_index) == FALSE)
-			return ERROR;
+			return FALSE;
 		return TRUE;
 	case IPPROTO_UDP:
 		if (parse_udp(eth_hdr,ip_hdr, port_id, flow_index) == FALSE)
-			return ERROR;
-		return TRUE;
+			return FALSE;
+		return TRUE;*/
 	default:
 		return FALSE;
 	}
