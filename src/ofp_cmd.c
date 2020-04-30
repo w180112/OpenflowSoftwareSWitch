@@ -12,6 +12,7 @@ static int cmd_addbr(int argc, char argv[4][64]);
 static int cmd_delbr(int argc, char argv[4][64]);
 static int cmd_addif(int argc, char argv[4][64]);
 static int cmd_delif(int argc, char argv[4][64]);
+static int cmd_show_flows(int argc, char argv[4][64]);
 
 static const cmd_list_t cmd_list[] = {
 	{ 1, "addbr", cmd_addbr, "<bridge>\t\tadd bridge" },
@@ -20,6 +21,7 @@ static const cmd_list_t cmd_list[] = {
 	  "<bridge> <device>\tadd interface to bridge" },
 	{ 2, "delif", cmd_delif,
 	  "<bridge> <device>\tdelete interface from bridge" },
+	{ 1, "show", cmd_show_flows, "flows\t\tshow the flow table" },
 	/*{ 3, "hairpin", br_cmd_hairpin,
 	  "<bridge> <port> {on|off}\tturn hairpin on/off" },
 	{ 2, "setageing", br_cmd_setageing,
@@ -122,16 +124,26 @@ int8_t cmd_parse(char ofp_cli[], int *count, char argument[4][64])
 	return 0;
 }
 
+static int cmd_show_flows(int argc, char argv[4][64])
+{
+	cli_2_ofp_t cli_2_ofp;
+
+	cli_2_ofp.opcode = SHOW_FLOW;
+	if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
+		return 0;
+	return 1;
+}
+
 static int cmd_addbr(int argc, char argv[4][64])
 {
 	int err;
-	cli_2_main_t cli_2_main;
+	cli_2_ofp_t cli_2_ofp;
 
 	switch (err = br_add_bridge(argv[1])) {
 	case 0:
-		cli_2_main.opcode = ADD_BR;
-		strncpy(cli_2_main.brname,argv[1],64);
-		if (ofp_cmd2mailbox((U8 *)&cli_2_main,sizeof(cli_2_main_t)) == TRUE)
+		cli_2_ofp.opcode = ADD_BR;
+		strncpy(cli_2_ofp.brname,argv[1],64);
+		if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
 			return 0;
 		return 1;
 
@@ -151,13 +163,13 @@ static int cmd_addbr(int argc, char argv[4][64])
 static int cmd_delbr(int argc, char argv[4][64])
 {
 	int err;
-	cli_2_main_t cli_2_main;
+	cli_2_ofp_t cli_2_ofp;
 
 	switch (err = br_del_bridge(argv[1])) {
 	case 0:
-		cli_2_main.opcode = DEL_BR;
-		strncpy(cli_2_main.brname,argv[1],64);
-		if (ofp_cmd2mailbox((U8 *)&cli_2_main,sizeof(cli_2_main_t)) == TRUE)
+		cli_2_ofp.opcode = DEL_BR;
+		strncpy(cli_2_ofp.brname,argv[1],64);
+		if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
 			return 0;
 		return 1;
 
@@ -183,7 +195,7 @@ static int cmd_delbr(int argc, char argv[4][64])
 static int cmd_addif(int argc, char argv[4][64])
 {
 	const char *brname;
-	cli_2_main_t cli_2_main;
+	cli_2_ofp_t cli_2_ofp;
 	int err;
 
 	argc -= 2;
@@ -195,10 +207,10 @@ static int cmd_addif(int argc, char argv[4][64])
 
 		switch(err) {
 		case 0:
-			cli_2_main.opcode = ADD_IF;
-			strncpy(cli_2_main.brname,brname,64);
-			strncpy(cli_2_main.ifname,ifname,64);
-			if (ofp_cmd2mailbox((U8 *)&cli_2_main,sizeof(cli_2_main_t)) == TRUE);
+			cli_2_ofp.opcode = ADD_IF;
+			strncpy(cli_2_ofp.brname,brname,64);
+			strncpy(cli_2_ofp.ifname,ifname,64);
+			if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE);
 			continue;
 
 		case ENODEV:
@@ -235,7 +247,7 @@ static int cmd_delif(int argc, char argv[4][64])
 {
 	const char *brname;
 	int err;
-	cli_2_main_t cli_2_main;
+	cli_2_ofp_t cli_2_ofp;
 
 	argc -= 2;
 	brname = *++argv;
@@ -245,10 +257,10 @@ static int cmd_delif(int argc, char argv[4][64])
 		err = br_del_interface(brname, ifname);
 		switch (err) {
 		case 0:
-			cli_2_main.opcode = DEL_IF;
-			strncpy(cli_2_main.brname,argv[1],64);
-			strncpy(cli_2_main.ifname,ifname,64);
-			if (ofp_cmd2mailbox((U8 *)&cli_2_main,sizeof(cli_2_main_t)) == TRUE);
+			cli_2_ofp.opcode = DEL_IF;
+			strncpy(cli_2_ofp.brname,argv[1],64);
+			strncpy(cli_2_ofp.ifname,ifname,64);
+			if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE);
 			continue;
 
 		case ENODEV:

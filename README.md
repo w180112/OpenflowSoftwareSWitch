@@ -27,7 +27,21 @@ to compile
 
 Then
 
-	# ./osw
+	# ./osw <OpenFlow NIC name>
+
+If OpenFlow connection is established, a simple console interface will show
+
+	Simple_OF_sw>
+
+Try to type
+
+	Simple_OF_sw> addbr br0
+
+Then 
+
+	Simple_OF_sw> addif br0 <NIC interface name>
+
+If the prompt is missing, just press Enter.
 
 To remove the binary files
 
@@ -36,14 +50,16 @@ To remove the binary files
 ## Note:
 
 1. This implementation is under OpenFlow protocol 1.3
-2. Flowmod and Packetout OF packets are only print out and will do nothing so far.
+2. PacketOut OF packets are only print out and will do nothing so far.
+3. In Flowmod, I only implementation Flowmod type - "add flow" so far.
 
 ## Test environment:
 
 1. CentOS 7.6 and AMD EPYC 7401P, 128GB ram server
 2. Raspbain Feb. 2020 on RaspberryPi 4B v1.2
-3. Can connect to Ryu/ONOS/OpenDaylight SDN controller
+3. Can connect to Ryu SDN controller with simple_switch_13.py application
 
 ## TODO:
 
-1. Make Flowmod and Packetin Packetout be able to interact with OpenFlow flow table
+1. Make PacketOut be able to interact with this OpenFlow software switch
+2. implementation Flowmod type - "delete flow" and flow timeout.

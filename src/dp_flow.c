@@ -2,9 +2,12 @@
 #include 		"ofpd.h"
 #include 		"dp_codec.h"
 #include		"dp_flow.h"
+#include 		"dp_sock.h"
 
 extern flow_t flow[256];
-STATUS apply_flow(U8 *mu, uint32_t flow_index);
+extern void dp_drv_xmit(U8 *mu, U16 mulen, uint16_t port_id, dp_io_fds_t *dp_io_fds_head);
+
+STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head);
 STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type);
 STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
@@ -13,10 +16,11 @@ STATUS find_flow(pkt_info_t pkt_info, uint32_t *flow_index)
 {
 	uint16_t max_pri = 0;
 	int ret;
+	BOOL is_found = FALSE;
 	//uint8_t index = find_index(pkt_info.dst_mac,6);
-
+	//*flow_index = 0;
 	for(int i=0; i<256; i++) {
-		max_pri = (max_pri > flow[i].priority) ? max_pri : flow[i].priority;
+		//max_pri = (max_pri > flow[i].priority) ? max_pri : flow[i].priority;
 		//printf("<%d\n", __LINE__);
 		if (flow[i].is_exist == FALSE)
 			continue;
@@ -26,17 +30,21 @@ STATUS find_flow(pkt_info_t pkt_info, uint32_t *flow_index)
 			if ((ret = flow_type_cmp(pkt_info, (void **)&(((flow_t *)cur)->next_match), ((flow_t *)cur)->type)) == FALSE)
 				break;
 			else if (ret == END) {
-				*flow_index = i;
+				if (max_pri <= flow[i].priority) {
+					*flow_index = i;
+					is_found = TRUE;
+					break;
+				}
 				//puts("flow found.");
-				return TRUE;
+				//return TRUE;
 			}
 		}
 	}
 
-	return FALSE;
+	return is_found;
 }
 
-STATUS apply_flow(U8 *mu, uint32_t flow_index)
+STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head)
 {
 	uint8_t type = flow[flow_index].type;
 	int i = 0;
@@ -44,8 +52,7 @@ STATUS apply_flow(U8 *mu, uint32_t flow_index)
 	for(void *cur=(void *)(flow[flow_index].next_action);; i++) {
 		if (i >= 20)
 			return FALSE;
-		printf("type = %u\n", type);
-		//printf("<%d %x\n", __LINE__, cur);
+		//printf("type = %u\n", type);
 		switch (type) {
 		case 0:
 			return FALSE;
@@ -54,6 +61,8 @@ STATUS apply_flow(U8 *mu, uint32_t flow_index)
 			printf("flow port id = %u\n", ((port_t *)cur)->port_id);
 			if (((port_t *)cur)->port_id == 65533)
 				return TRUE;
+			else
+				dp_drv_xmit(mu, mulen, ((port_t *)cur)->port_id, dp_io_fds_head);
 			cur = (void *)(((port_t *)cur)->next);
 			type = ((port_t *)cur)->type;
 			break;
@@ -341,7 +350,6 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 			}
 		}
 	}
-	printf("<%d\n", __LINE__);
 	return FALSE;
 }
 

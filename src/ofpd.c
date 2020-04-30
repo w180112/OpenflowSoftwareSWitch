@@ -95,11 +95,11 @@ STATUS DP_ipc_init(void)
  * ofpdInit: 
  *
  **************************************************************/
-int ofpdInit(void)
+int ofpdInit(char *of_ifname)
 {
 	U16  i;
 	
-	if (OFP_SOCK_INIT() < 0){ //must be located ahead of system init
+	if (OFP_SOCK_INIT(of_ifname) < 0){ //must be located ahead of system init
 		return -1;
 	}
 	
@@ -148,19 +148,23 @@ int main(int argc, char **argv)
 {
 	extern STATUS	OFP_FSM(tOFP_PORT *port_ccb, U16 event);
 	tIPC_PRIM		*ipc_prim;
-	cli_2_main_t 	*cli_2_main;
-    tOFP_MBX		*mail;
+	cli_2_ofp_t 	*cli_2_ofp;
+	cli_2_dp_t 		cli_2_dp;
+    tOFP_MBX		*mail, mail_2_msgq;
 	tOFP_PORT		*ccb;
 	tMBUF   		mbuf;
 	int				msize;
-	//U16				port;
+	//U16			port;
 	U16				event;
 	U16				ipc_type;
 	int 			ret;
-	dp_io_fds_t		*dp_io_fds_head = NULL;
-	pthread_t 		dp_thread = 0;
 	
-	if (ofpdInit() < 0)
+	if (argc != 2) {
+		puts("Usage: ./osw <OpenFlow NIC name>");
+		return -1;
+	}
+
+	if (ofpdInit(argv[1]) < 0)
 		return -1;
 	if (dp_init() < 0)
 		return -1;
@@ -179,7 +183,7 @@ int main(int argc, char **argv)
 	/*if ((ofp_dp_pid=fork()) == 0) {
    		ofp_sockd_dp();
     }*/
-	
+	strncpy(ofp_ports[0].of_ifname, argv[1], 16);
     signal(SIGINT, OFP_bye);
 	ofp_ports[0].sockfd = ofp_io_fds[0];
     OFP_FSM(&ofp_ports[0], E_START);
@@ -212,7 +216,7 @@ int main(int argc, char **argv)
 			else if (ret == FALSE) {
 				for(;;) {
 					sleep(1);
-					if (ofpdInit() == 0)
+					if (ofpdInit(ofp_ports[0].of_ifname) == 0)
 						break;
 				}
 				if ((ofp_cp_pid=fork()) == 0) {
@@ -229,14 +233,38 @@ int main(int argc, char **argv)
 		
 		case IPC_EV_TYPE_CLI:
 			mail = (tOFP_MBX*)mbuf.mtext;
-			cli_2_main = (cli_2_main_t *)(mail->refp);
-			if (cli_2_main->opcode == ADD_IF) {
-				//printf("<%d\n", __LINE__);
-				DP_SOCK_INIT(cli_2_main->ifname, &dp_io_fds_head);
-				printf("dp_io_fds_head = %x\n", dp_io_fds_head);
-				if (dp_thread == 0) {
-					pthread_create(&dp_thread, NULL, (void *)sockd_dp, dp_io_fds_head);
-    			}
+			cli_2_ofp = (cli_2_ofp_t *)(mail->refp);
+			
+			switch(cli_2_ofp->opcode)
+			{
+				case ADD_IF:
+				case SHOW_FLOW:
+					memcpy(&cli_2_dp.cli_2_ofp, cli_2_ofp, sizeof(cli_2_ofp_t));
+					cli_2_dp.msg_type = CLI;
+					U16 mulen = sizeof(cli_2_dp_t);
+					U8 *mu = (U8 *)&cli_2_dp;
+
+    				if (dpQid == -1) {
+						if ((dpQid=msgget(DP_Q_KEY,0600|IPC_CREAT)) < 0) {
+							printf("send> Oops! dpQ(key=0x%x) not found\n",DP_Q_KEY);
+   	 					}
+					}
+	
+					if (mulen > MSG_LEN) {
+	 					printf("Incoming frame length(%d) is too lmaile!\n",mulen);
+						return ERROR;
+					}
+
+					mail_2_msgq.len = mulen;
+					memcpy(mail_2_msgq.refp, mu, mulen); /* mail content will be copied into mail queue */
+	
+					//printf("dp_send2mailbox(dp_sock.c %d): mulen=%d\n",__LINE__,mulen);
+					mail_2_msgq.type = IPC_EV_TYPE_OFP;
+					ipc_sw(dpQid, &mail_2_msgq, sizeof(mail_2_msgq), -1);
+					printf("send cli msg to dp\n");
+					break;
+				default:
+					;
 			}
 			break;
 		case IPC_EV_TYPE_DP:

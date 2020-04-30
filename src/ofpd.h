@@ -81,6 +81,7 @@ typedef struct flowmod_info {
 enum {
 	FLOWMOD = 0,
 	PACKET_OUT,
+	CLI,
 };
 
 //========= The structure of port ===========
@@ -95,11 +96,8 @@ typedef struct {
 	U32			err_imsg_cnt;	
 	
 	tSUB_VAL	port_id;
-		
-	U32			ttl;
-	char		port_desc[80];
-	char		sys_name[80];
-	char		sys_desc[255];
+
+	char of_ifname[16];
 	
 	tSYS_CAP	sys_cap;
 	tMNG_ADDR  	mng_addr;

@@ -2,6 +2,8 @@
 #include 			<ipc.h>
 #include        	"ofpd.h"
 #include 			"dp_flow.h"
+#include 			"ofp_cmd.h"
+#include 			"dp_sock.h"
 
 typedef struct q {
 	U8 pkt[ETH_MTU];
@@ -11,7 +13,7 @@ typedef struct q {
 
 flow_t flow[256];
 
-extern STATUS DP_decode_frame(tOFP_MBX *mail);
+extern STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head);
 extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 extern STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
 
@@ -29,6 +31,9 @@ void dp(tIPC_ID dpQid)
 	q_t				*q_head = NULL;
 	int 			total_enq_node = 0;
 	int 			id = 1;
+	dp_io_fds_t		*dp_io_fds_head = NULL;
+	pthread_t 		dp_thread = 0;
+
 	memset(flow, 0, sizeof(flow_t)*256);
 	for(;;) {
 		//printf("\n===============================================\n");
@@ -47,7 +52,7 @@ void dp(tIPC_ID dpQid)
 			//PRINT_MESSAGE(((tDP_MSG *)(mail->refp))->buffer,(mail->len) - (sizeof(int) + sizeof(uint16_t)));
 			//ofp_ports[port].port = TEST_PORT_ID;
 			//DBG_OFP(DBGLVL1,&ofp_ports[0],"<-- Rx ofp message\n");
-			if ((ret = DP_decode_frame(mail)) == ERROR)
+			if ((ret = DP_decode_frame(mail, dp_io_fds_head)) == ERROR)
 				continue;
 			else if (ret == FALSE) {
 				//puts("send packet_in");
@@ -90,6 +95,29 @@ void dp(tIPC_ID dpQid)
 			else if (*(mail->refp) == PACKET_OUT) {
 				puts("recv pkt_out from ofp");
 				// TODO: process pkt_out
+			}
+			else if (*(mail->refp) == CLI) {
+				//printf("<%d\n", __LINE__);
+				cli_2_dp_t *cli_2_dp = (cli_2_dp_t *)(mail->refp);
+				switch(cli_2_dp->cli_2_ofp.opcode)
+				{
+					case ADD_IF:
+						DP_SOCK_INIT(cli_2_dp->cli_2_ofp.ifname, &dp_io_fds_head);
+						//printf("dp_io_fds_head = %x\n", dp_io_fds_head);
+						if (dp_thread == 0) {
+							pthread_create(&dp_thread, NULL, (void *)sockd_dp, dp_io_fds_head);
+    					}
+						break;
+					case SHOW_FLOW:
+						for(int i=0; i<256; i++) {
+							if (flow[i].is_exist == FALSE)
+								continue;
+							//TODO: dump the flow table
+						}
+						break;
+					default:
+						;
+				}
 			}
 			break;
 		default:
@@ -134,14 +162,11 @@ STATUS enq_pkt_in(tOFP_MBX *mail, q_t **head, int id)
 {
 	q_t **cur_q;
 	tDP_MSG *msg = (tDP_MSG *)(mail->refp);
-	//printf("<%d\n", __LINE__);
 	for(cur_q=head; (*cur_q)!=NULL; cur_q=&(*cur_q)->next);
-	//printf("<%d\n", __LINE__);
     q_t *new_node = (q_t *)malloc(sizeof(q_t));
     new_node->id = id;
     memcpy(new_node->pkt,(U8 *)(msg->buffer),(mail->len) - (sizeof(int) + sizeof(uint16_t)));
     new_node->next = *cur_q;
     *cur_q = new_node;
-	//printf("<%d\n", __LINE__);
 	return TRUE;
 }

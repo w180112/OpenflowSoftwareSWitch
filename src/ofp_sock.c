@@ -24,7 +24,7 @@ fd_set			ofp_io_ready[2];
  * - from string to ulong
  *   inet_aton("10.5.5.217", (struct in_addr*)cSA_ip); 
  **************************************************************************/ 
-int OFP_SOCK_INIT() 
+int OFP_SOCK_INIT(char *if_name) 
 {
 	struct sockaddr_in 			sock_info[2], local_sock_info[2];
 	struct sock_fprog  			Filter;
@@ -69,7 +69,7 @@ int OFP_SOCK_INIT()
     sock_info[0].sin_port = htons(6653);
     
 	ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name,IF_NAME,IFNAMSIZ-1);
+    strncpy(ifr.ifr_name,if_name,IFNAMSIZ-1);
 	if (ioctl(ofp_io_fds[0],SIOCGIFADDR,&ifr) != 0) {
         perror("ioctl failed");
         close(ofp_io_fds[0]);
@@ -82,7 +82,7 @@ int OFP_SOCK_INIT()
     local_sock_info[0].sin_port = htons(6654);
 
 	/* Set the network card in promiscuous mode */
-  	strncpy(ethreq.ifr_name,IF_NAME,IFNAMSIZ-1);
+  	strncpy(ethreq.ifr_name,if_name,IFNAMSIZ-1);
   	if (ioctl(ofp_io_fds[1], SIOCGIFFLAGS, &ethreq)==-1) {
     	perror("ioctl (SIOCGIFCONF) 1\n");
     	close(ofp_io_fds[1]);

@@ -247,12 +247,16 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 		}
 		port_ccb->flowmod_info.match_info[--i].is_tail = TRUE;
 	}
-	uint16_t padding, tmp;
+	uint16_t padding;
 	match_len = ntohs(((ofp_flow_mod_t *)mu)->match.length);
-	if ((tmp = ((match_len + sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type)) << 13)) > 0)
+	/*if ((tmp = ((match_len + sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type)) << 13)) > 0)
 		padding = (((match_len + sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type)) >> 3) + 1) << 3;
 	else
-		padding = ((match_len + sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type)) >> 3) << 3;
+		padding = ((match_len + sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type)) >> 3) << 3;*/
+	if ((match_len << 13) > 0)
+		padding = ((match_len >> 3) + 1) << 3;
+	else
+		padding = (match_len >> 3) << 3;
 	ofp_instruction_actions = (ofp_instruction_actions_t *)(mu + sizeof(ofp_flow_mod_t) - sizeof(struct ofp_match) + padding);
 	ofp_action_header_t *ofp_action_header = (ofp_action_header_t *)(((U8 *)ofp_instruction_actions) + sizeof(ofp_instruction_actions_t));
 	ofp_oxm_header_t *ofp_oxm_header = (ofp_oxm_header_t *)(ofp_action_header->pad);

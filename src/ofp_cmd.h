@@ -10,24 +10,32 @@
 extern "C" {
 #endif
 
-#define ADD_BR 0
-#define DEL_BR 1
-#define ADD_IF 2
-#define DEL_IF 3
+enum {
+    ADD_BR = 0,
+    DEL_BR,
+    ADD_IF,
+    DEL_IF,
+    SHOW_FLOW,
+};
 
 typedef struct cmd_list {
     int		nargs;
     const char	*name;
-	  int		(*func)(int argc, char argv[4][64]);
-	  const char 	*help;
+	int		(*func)(int argc, char argv[4][64]);
+	const char 	*help;
 }cmd_list_t;
 
-typedef struct cli_2_main {
+typedef struct cli_2_ofp {
     uint8_t opcode;
     char brname[64];
     char ifname[64];
     char msg[256];
-}cli_2_main_t;
+}cli_2_ofp_t;
+
+typedef struct cli_2_dp {
+    uint8_t     msg_type;
+    cli_2_ofp_t cli_2_ofp;
+}cli_2_dp_t;
 
 extern void 			ofp_cmd(void);
 extern STATUS 			ofp_send2mailbox(U8 *mu, int mulen);

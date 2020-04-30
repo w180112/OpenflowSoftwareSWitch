@@ -183,7 +183,7 @@ STATUS A_send_feature_reply(tOFP_PORT *port_ccb)
 	int fd;
     struct ifreq ifr;
 	uint64_t tmp;
-	char *eth_name = IF_NAME;
+	char *eth_name = port_ccb->of_ifname;
 
 	/*if (getifaddrs(&ifaddr) == -1) {
     	perror("getifaddrs");
