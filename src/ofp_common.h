@@ -6,6 +6,7 @@
 
 #define OFP_ETH_ALEN 6
 #define OFP_MAX_PORT_NAME_LEN 16
+#define OFP_NO_BUFFER 0xFFFFFFFF
 #define OFP_ASSERT(EXPR)                                                \
         extern int (*build_assert(void))[ sizeof(struct {               \
                     unsigned int build_assert_failed : (EXPR) ? 1 : -1; })]

@@ -22,6 +22,8 @@ STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id,
 STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id, uint32_t *flow_index);
 STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id, uint32_t *flow_index);
 
+extern flow_t flow[256];
+
 extern STATUS find_flow(pkt_info_t pkt_info, uint32_t *flow_index);
 extern STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head);
 
@@ -34,13 +36,14 @@ extern STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp
  * output: imsg, event
  * return: session ccb
  *****************************************************/
-STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head)
+STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id)
 {
 	U16	mulen;
 	U8	*mu;
 	tDP_MSG *msg;
 	struct ethhdr *eth_hdr;
 	uint32_t flow_index;
+	int ret;
 	
 	if (mail->len > MSG_LEN) {
 	    DBG_OFP(DBGLVL1, 0, "error! too large frame(%d)\n", mail->len);
@@ -73,11 +76,14 @@ STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head)
 	}
 	//TODO: send pkt from rule
 	//puts("flow found.");
-	if (apply_flow(mu, mulen, flow_index, dp_io_fds_head) == FALSE)
+	if ((ret = apply_flow(mu, mulen, flow_index, dp_io_fds_head)) == ERROR)
 		return ERROR;
-	else 
+	else if (ret == FALSE) {
+		*buffer_id = flow[flow_index].buffer_id; // only when pkt needs to be sent to controller will return false;
 		return FALSE;
-	return TRUE;
+	}
+	else
+		return TRUE;
 }
 
 STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id, uint32_t *flow_index)

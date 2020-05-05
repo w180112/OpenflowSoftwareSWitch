@@ -8,6 +8,17 @@
 #include		<sys/socket.h>
 #include 		<sys/types.h> 
 #include 		<netinet/in.h>
+
+#if 0 //use with splice()
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/uio.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#endif 
+
 #include        "ofp_sock.h"
 #include		"ofpd.h"
 
@@ -138,6 +149,22 @@ void ofp_sockd_cp(void)
 	** to.tv_sec = 1;  ie. non-blocking; "select" will return immediately; =polling 
     ** to.tv_usec = 0; ie. blocking
     */
+
+   	#if 0 /* Using splice() system call */
+		int pipe_fd[2];
+		int fd;
+		char tmpfile[] = "/tmp/fooXXXXXX";
+		void *buffer;
+
+		fd = mkostemp(tmpfile, O_NOATIME);
+		unlink(tmpfile);
+		lseek(fd, 4095, SEEK_SET);
+		write(fd, "", 1);
+		lseek(fd, 0, SEEK_SET);
+		pipe(pipe_fd);
+		buffer = mmap(NULL, 4096, PROT_READ, MAP_PRIVATE, fd, 0);
+	#endif 
+
 	for(;;) {   
 		#if 0 
 		if ((n = select(ofp_io_fds[0]+1,&ofp_io_ready[0],(fd_set*)0,(fd_set*)0,NULL/*&to*/)) < 0){
@@ -154,7 +181,13 @@ void ofp_sockd_cp(void)
     	if (FD_ISSET(ofp_io_fds[0],&ofp_io_ready[0])) {
 		#endif
     		rxlen = recv(ofp_io_fds[0],msg.buffer,ETH_MTU,0);
-    		if (rxlen <= 0) {
+			/*rxlen = splice(ofp_io_fds[0], NULL, pipe_fd[1], NULL, 4096, SPLICE_F_MOVE);
+			printf("%d %x\n", rxlen, buffer);
+    		splice(pipe_fd[0], NULL, fd, NULL, rxlen, SPLICE_F_MOVE);
+			PRINT_MESSAGE((char*)buffer, rxlen);
+			memcpy(msg.buffer, buffer, rxlen);
+			PRINT_MESSAGE((char*)msg.buffer, rxlen);*/
+			if (rxlen <= 0) {
       			printf("Error! recv(): len <= 0 at CP\n");
 				msg.sockfd = 0;
 				msg.type = DRIV_FAIL;
@@ -166,7 +199,6 @@ void ofp_sockd_cp(void)
    			/*printf("=========================================================\n");
 			printf("rxlen=%d\n",rxlen);
     		PRINT_MESSAGE((char*)msg.buffer, rxlen);*/
-    		
     		ofp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+1);
    		//} /* if select */
    	} /* for */
@@ -216,10 +248,10 @@ void drv_xmit(U8 *mu, U16 mulen, int sockfd)
 {
 	//printf("\ndrv_xmit ............\n");
 	//PRINT_MESSAGE((unsigned char*)mu, mulen);
-	if (sockfd == ofp_io_fds[0])
+	//if (sockfd == ofp_io_fds[0])
 		send(sockfd, mu, mulen, 0);
-	else
-		sendto(sockfd, mu, mulen, 0, (struct sockaddr*)&sll, sizeof(sll));
+	//else
+		//sendto(sockfd, mu, mulen, 0, (struct sockaddr*)&sll, sizeof(sll));
 }
 
 /*********************************************************

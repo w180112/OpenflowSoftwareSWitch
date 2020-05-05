@@ -18,7 +18,6 @@ STATUS find_flow(pkt_info_t pkt_info, uint32_t *flow_index)
 	int ret;
 	BOOL is_found = FALSE;
 	//uint8_t index = find_index(pkt_info.dst_mac,6);
-	//*flow_index = 0;
 	for(int i=0; i<256; i++) {
 		//max_pri = (max_pri > flow[i].priority) ? max_pri : flow[i].priority;
 		//printf("<%d\n", __LINE__);
@@ -51,18 +50,20 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 
 	for(void *cur=(void *)(flow[flow_index].next_action);; i++) {
 		if (i >= 20)
-			return FALSE;
+			return ERROR;
 		//printf("type = %u\n", type);
 		switch (type) {
 		case 0:
-			return FALSE;
+			return TRUE;
 		case PORT:
 			//send to port
-			printf("flow port id = %u\n", ((port_t *)cur)->port_id);
-			if (((port_t *)cur)->port_id == 65533)
-				return TRUE;
-			else
+			//printf("flow port id = %u\n", ((port_t *)cur)->port_id);
+			if (((port_t *)cur)->port_id == 0xfffffffd)
+				return FALSE;
+			else {
 				dp_drv_xmit(mu, mulen, ((port_t *)cur)->port_id, dp_io_fds_head);
+				return TRUE;
+			}
 			cur = (void *)(((port_t *)cur)->next);
 			type = ((port_t *)cur)->type;
 			break;
@@ -112,7 +113,7 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 			;
 		}
 	}
-	return FALSE;
+	return TRUE;
 }
 
 uint8_t find_index(U8 *info, int len)
@@ -205,6 +206,7 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 		if (flowmod_info.command == OFPFC_ADD) {
 			if (flow[i].is_exist == TRUE)
 				continue;
+			flow[i].buffer_id = flowmod_info.buffer_id;
 			*flow_index = i;
 			flow[i].is_exist = TRUE;
 			if (flowmod_info.is_tail == TRUE)

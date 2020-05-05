@@ -342,7 +342,8 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 			port_ccb->flowmod_info.action_info[i].max_len = htons(ofp_action_output->max_len);
 			port_ccb->flowmod_info.action_info[i].port_id = htonl(ofp_action_output->port);
 			port_ccb->flowmod_info.action_info[i].type = PORT;
-			printf("action port id = %u\n", port_ccb->flowmod_info.action_info[i].port_id);
+			//PRINT_MESSAGE(cur,16);
+			printf("action port id = %u %u\n", port_ccb->flowmod_info.action_info[i].port_id, htonl(ofp_action_output->port));
 			/*if (head_action_info == NULL) {
 				head_action_info = new_action;
 				cur_action_info = head_action_info;

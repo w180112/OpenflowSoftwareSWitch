@@ -4,6 +4,7 @@
 #include 			"dp_flow.h"
 #include 			"ofp_cmd.h"
 #include 			"dp_sock.h"
+#include			"ofp_common.h" 		
 
 typedef struct q {
 	U8 pkt[ETH_MTU];
@@ -13,7 +14,7 @@ typedef struct q {
 
 flow_t flow[256];
 
-extern STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head);
+extern STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id);
 extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 extern STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
 
@@ -30,9 +31,9 @@ void dp(tIPC_ID dpQid)
 	int 			ret;
 	q_t				*q_head = NULL;
 	int 			total_enq_node = 0;
-	int 			id = 1;
 	dp_io_fds_t		*dp_io_fds_head = NULL;
 	pthread_t 		dp_thread = 0;
+	uint32_t 		buffer_id, id = 1;
 
 	memset(flow, 0, sizeof(flow_t)*256);
 	for(;;) {
@@ -52,16 +53,20 @@ void dp(tIPC_ID dpQid)
 			//PRINT_MESSAGE(((tDP_MSG *)(mail->refp))->buffer,(mail->len) - (sizeof(int) + sizeof(uint16_t)));
 			//ofp_ports[port].port = TEST_PORT_ID;
 			//DBG_OFP(DBGLVL1,&ofp_ports[0],"<-- Rx ofp message\n");
-			if ((ret = DP_decode_frame(mail, dp_io_fds_head)) == ERROR)
+			if ((ret = DP_decode_frame(mail, dp_io_fds_head, &buffer_id)) == ERROR)
 				continue;
 			else if (ret == FALSE) {
-				//puts("send packet_in");
-				if (total_enq_node > 65535)
-					continue;
-				enq_pkt_in(mail,&q_head,id);
-				id++;
-				if (id > 65536)
-					id = 1;
+				if (buffer_id != OFP_NO_BUFFER) {
+					//puts("send packet_in");
+					if (total_enq_node >= 0xfffffffe)
+						continue;
+					enq_pkt_in(mail,&q_head,id);
+					id++;
+					if (id > 0xfffffffe)
+						id = 1;
+				}
+				else 
+					id = OFP_NO_BUFFER;
 				tDP2OFP_MSG msg;
 				msg.id = id;
 				memcpy(msg.buffer, (U8 *)((tDP_MSG *)(mail->refp)), (mail->len));
@@ -75,6 +80,7 @@ void dp(tIPC_ID dpQid)
 		case IPC_EV_TYPE_OFP:
 			mail = (tOFP_MBX*)mbuf.mtext;
 			if (*(mail->refp) == FLOWMOD) {
+				/* TODO: if buffer_id exist, needs to match the flow refer to this buffer_id */
 				flowmod_info_t flowmod_info;
 				uint32_t flow_index;
 				memset(flowmod_info.match_info, 0, sizeof(pkt_info_t)*20);

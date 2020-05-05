@@ -43,7 +43,7 @@ typedef struct flow {
 }flow_t;
 
 typedef struct port {
-	uint16_t port_id;
+	uint32_t port_id;
 	uint16_t max_len;
 	uint8_t type;
 	void *next;
@@ -101,7 +101,7 @@ typedef struct src_port {
 
 typedef struct pkt_info {
 	uint8_t type;
-	uint16_t port_id;
+	uint32_t port_id;
 	unsigned char dst_mac[ETH_ALEN];
 	unsigned char src_mac[ETH_ALEN];
 	uint16_t ether_type;
