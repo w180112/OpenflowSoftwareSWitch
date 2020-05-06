@@ -6,9 +6,9 @@
 #ifndef _DP_H_
 #define _DP_H_
 
+
 #define ETH_MTU					1514
-#define MSG_LEN 				1524
-#define JUMBO_MTU				9000
+#define MSG_LEN					4074
 
 /*-----------------------------------------
  * msg from dp sock

@@ -17,6 +17,7 @@ flow_t flow[256];
 extern STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id);
 extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 extern STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
+extern STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head);
 
 void dp(tIPC_ID dpQid);
 STATUS enq_pkt_in(tOFP_MBX *mail, q_t **head, int id);
@@ -80,7 +81,7 @@ void dp(tIPC_ID dpQid)
 		case IPC_EV_TYPE_OFP:
 			mail = (tOFP_MBX*)mbuf.mtext;
 			if (*(mail->refp) == FLOWMOD) {
-				/* TODO: if buffer_id exist, needs to match the flow refer to this buffer_id */
+				/* TODO: if buffer_id exist, needs to make the buffered packet match the flow refer to this buffer_id */
 				flowmod_info_t flowmod_info;
 				uint32_t flow_index;
 				memset(flowmod_info.match_info, 0, sizeof(pkt_info_t)*20);
@@ -99,8 +100,14 @@ void dp(tIPC_ID dpQid)
 				//free(flowmod_info.action_info);
 			}
 			else if (*(mail->refp) == PACKET_OUT) {
+				packet_out_info_t packet_out_info;
+
+				memset(packet_out_info.action_info, 0, sizeof(pkt_info_t)*20);
+				memcpy(&packet_out_info, mail->refp, sizeof(packet_out_info_t));
 				puts("recv pkt_out from ofp");
-				// TODO: process pkt_out
+				if (pkt_out_process(packet_out_info, dp_io_fds_head) == FALSE) {
+					puts("pkt_out processing exit unexpected.");
+				}
 			}
 			else if (*(mail->refp) == CLI) {
 				//printf("<%d\n", __LINE__);

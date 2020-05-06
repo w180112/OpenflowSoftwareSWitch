@@ -180,7 +180,7 @@ void ofp_sockd_cp(void)
      	 *---------------------------------------------------------------------*/
     	if (FD_ISSET(ofp_io_fds[0],&ofp_io_ready[0])) {
 		#endif
-    		rxlen = recv(ofp_io_fds[0],msg.buffer,ETH_MTU,0);
+    		rxlen = recv(ofp_io_fds[0], msg.buffer, ETH_MTU,0);
 			/*rxlen = splice(ofp_io_fds[0], NULL, pipe_fd[1], NULL, 4096, SPLICE_F_MOVE);
 			printf("%d %x\n", rxlen, buffer);
     		splice(pipe_fd[0], NULL, fd, NULL, rxlen, SPLICE_F_MOVE);

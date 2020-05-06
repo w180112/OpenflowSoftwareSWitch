@@ -14,7 +14,6 @@
 #include <stdint.h>
 #include "dp.h"
 
-
 enum {
 	PORT = 1,
 	DST_MAC,
@@ -88,13 +87,13 @@ typedef struct ip_proto {
 }ip_proto_t;
 
 typedef struct dst_port {
-	uint8_t dst_port;
+	uint16_t dst_port;
 	uint8_t type;
 	void *next;
 }dst_port_t;
 
 typedef struct src_port {
-	uint8_t src_port;
+	uint16_t src_port;
 	uint8_t type;
 	void *next;
 }src_port_t;
@@ -108,8 +107,8 @@ typedef struct pkt_info {
 	uint32_t ip_dst;
 	uint32_t ip_src;
 	uint8_t ip_proto;
-	uint8_t dst_port;
-	uint8_t src_port;
+	uint16_t dst_port;
+	uint16_t src_port;
 	uint16_t max_len; /* for OFPCML_MAX or OFPCML_NO_BUFFER or 0 */
 	BOOL	is_tail;
 }pkt_info_t;

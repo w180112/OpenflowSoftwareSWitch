@@ -22,16 +22,19 @@ extern int		ofp_io_fds[10];
 
 char 			*OFP_state2str(U16 state);
 
-static STATUS 	A_send_hello(tOFP_PORT*);
-static STATUS 	A_send_echo_request(tOFP_PORT*);
-static STATUS   A_send_feature_reply(tOFP_PORT*);
-static STATUS   A_send_multipart_reply(tOFP_PORT*);
-static STATUS   A_start_timer(tOFP_PORT*);
-static STATUS   A_clear_query_cnt(tOFP_PORT*);
-static STATUS   A_stop_query_tmr(tOFP_PORT*);
-static STATUS   A_query_tmr_expire(tOFP_PORT*);
-static STATUS   A_send_packet_in(tOFP_PORT*);
-static STATUS   A_send_to_dp(tOFP_PORT*);
+static STATUS 	A_send_hello(tOFP_PORT *port_ccb);
+static STATUS 	A_send_echo_request(tOFP_PORT *port_ccb);
+static STATUS   A_send_feature_reply(tOFP_PORT *port_ccb);
+static STATUS   A_send_multipart_reply(tOFP_PORT *port_ccb);
+static STATUS   A_start_timer(tOFP_PORT *port_ccb);
+static STATUS   A_clear_query_cnt(tOFP_PORT *port_ccb);
+static STATUS   A_stop_query_tmr(tOFP_PORT *port_ccb);
+static STATUS   A_query_tmr_expire(tOFP_PORT *port_ccb);
+static STATUS   A_send_packet_in(tOFP_PORT *port_ccb);
+static STATUS 	A_send_pktout_to_dp(tOFP_PORT *port_ccb);
+static STATUS 	A_send_flowmod_to_dp(tOFP_PORT *port_ccb);
+
+STATUS ofp_send2dp(U8 *mu, int mulen);
 
 tOFP_STATE_TBL  ofp_fsm_tbl[] = { 
 /*//////////////////////////////////////////////////////////////////////////////////
@@ -53,9 +56,9 @@ tOFP_STATE_TBL  ofp_fsm_tbl[] = {
 
 { S_ESTABLISHED,    E_PACKET_IN,            S_ESTABLISHED,  { A_send_packet_in, 0 }},
 
-{ S_ESTABLISHED,    E_FLOW_MOD,            	S_ESTABLISHED,  { A_send_to_dp, 0 }},
+{ S_ESTABLISHED,    E_FLOW_MOD,            	S_ESTABLISHED,  { A_send_flowmod_to_dp, 0 }},
 
-{ S_ESTABLISHED,    E_PACKET_OUT,           S_ESTABLISHED,  { /*A_send_to_dp,*/ 0 }},
+{ S_ESTABLISHED,    E_PACKET_OUT,           S_ESTABLISHED,  { A_send_pktout_to_dp, 0 }},
 
 { S_INVALID, 0 }
 };
@@ -361,11 +364,36 @@ STATUS A_send_packet_in(tOFP_PORT *port_ccb)
  * A_send_to_host: 
  *
  *********************************************************************/
-STATUS A_send_to_dp(tOFP_PORT *port_ccb)	
+STATUS A_send_flowmod_to_dp(tOFP_PORT *port_ccb)	
+{
+	ofp_send2dp((U8 *)&(port_ccb->flowmod_info), port_ccb->flowmod_info.msg_len);
+	memset(&(port_ccb->flowmod_info), 0, sizeof(flowmod_info_t));
+
+	return TRUE;
+}
+
+/*********************************************************************
+ * A_send_to_host: 
+ *
+ *********************************************************************/
+STATUS A_send_pktout_to_dp(tOFP_PORT *port_ccb)	
+{
+	ofp_send2dp((U8 *)&(port_ccb->packet_out_info), port_ccb->packet_out_info.msg_len);
+	memset(&(port_ccb->packet_out_info), 0, sizeof(packet_out_info_t));
+
+	return TRUE;
+}
+/*********************************************************
+ * ofp_send2dp:
+ *
+ * Input  : mu - msg to dp
+ *          mulen - mu length
+ *
+ * return : TRUE or ERROR(-1)
+ *********************************************************/
+STATUS ofp_send2dp(U8 *mu, int mulen)	
 {
 	tOFP_MBX mail;
-	U16 mulen = port_ccb->flowmod_info.msg_len;
-	U8 *mu = (U8 *)&(port_ccb->flowmod_info);
 
     if (dpQid == -1) {
 		if ((dpQid=msgget(DP_Q_KEY,0600|IPC_CREAT)) < 0) {
@@ -384,7 +412,6 @@ STATUS A_send_to_dp(tOFP_PORT *port_ccb)
 	//printf("dp_send2mailbox(dp_sock.c %d): mulen=%d\n",__LINE__,mulen);
 	mail.type = IPC_EV_TYPE_OFP;
 	ipc_sw(dpQid, &mail, sizeof(mail), -1);
-	memset(&(port_ccb->flowmod_info), 0, sizeof(flowmod_info_t));
 	printf("send msg to dp\n");
 
 	return TRUE;

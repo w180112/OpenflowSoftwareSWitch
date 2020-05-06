@@ -15,7 +15,8 @@
 #define OFP_Q_KEY				0x0b00
 #define DP_Q_KEY				0x0c00
 #define ETH_MTU					1514
-#define MSG_LEN					1524
+#define MSG_LEN					4074
+#define JUMBO_MTU				9000
 #define TEST_PORT_ID			1
 
 #define IF_NAME 				"enp1s0"
@@ -78,6 +79,15 @@ typedef struct flowmod_info {
 	BOOL 		is_tail;
 }flowmod_info_t;
 
+typedef struct packet_out_info {
+	uint8_t		msg_type;
+	U16			msg_len; 
+	uint32_t 	buffer_id;
+	uint32_t 	in_port;
+	pkt_info_t	action_info[20];
+	U8 			ofpbuf[ETH_MTU];
+}packet_out_info_t;
+
 enum {
 	FLOWMOD = 0,
 	PACKET_OUT,
@@ -108,6 +118,7 @@ typedef struct {
 	ofp_multipart_t ofp_multipart;
 	ofp_packet_in_t ofp_packet_in;
 	flowmod_info_t flowmod_info;
+	packet_out_info_t packet_out_info;
 	U8 			ofpbuf[ETH_MTU];
 	uint16_t 	ofpbuf_len;
 	host_learn_t *head;

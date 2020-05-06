@@ -19,6 +19,7 @@
 
 void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
+STATUS OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
 STATUS insert_node(host_learn_t **head, host_learn_t *node);
 host_learn_t *find_node(host_learn_t *head, uint32_t buffer_id);
 STATUS ip_hdr_init(tIP_PKT *ip_hdr, uint32_t src_ip, uint32_t dst_ip);
@@ -91,6 +92,7 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 		port_ccb->event = E_PACKET_OUT;
 		printf("----------------------------------\nrecv packet out\n");
 		PRINT_MESSAGE(mu, mulen);
+		OFP_decode_packet_out(port_ccb, mu, mulen);
 		break;
 	default:
 		break;
@@ -166,14 +168,14 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 
 	port_ccb->flowmod_info.msg_type = FLOWMOD;
 	port_ccb->flowmod_info.msg_len = sizeof(flowmod_info_t);
-	port_ccb->flowmod_info.buffer_id = htonl(((ofp_flow_mod_t *)mu)->buffer_id); 
+	port_ccb->flowmod_info.buffer_id = ntohl(((ofp_flow_mod_t *)mu)->buffer_id); 
 	port_ccb->flowmod_info.command = ((ofp_flow_mod_t *)mu)->command;
 	port_ccb->flowmod_info.cookie = bitswap64(((ofp_flow_mod_t *)mu)->cookie);
-	port_ccb->flowmod_info.hard_timeout = htons(((ofp_flow_mod_t *)mu)->hard_timeout);
-	port_ccb->flowmod_info.idle_timeout = htons(((ofp_flow_mod_t *)mu)->idle_timeout);
-	port_ccb->flowmod_info.out_group = htonl(((ofp_flow_mod_t *)mu)->out_group);
-	port_ccb->flowmod_info.out_port = htonl(((ofp_flow_mod_t *)mu)->out_port);
-	port_ccb->flowmod_info.priority = htons(((ofp_flow_mod_t *)mu)->priority);
+	port_ccb->flowmod_info.hard_timeout = ntohs(((ofp_flow_mod_t *)mu)->hard_timeout);
+	port_ccb->flowmod_info.idle_timeout = ntohs(((ofp_flow_mod_t *)mu)->idle_timeout);
+	port_ccb->flowmod_info.out_group = ntohl(((ofp_flow_mod_t *)mu)->out_group);
+	port_ccb->flowmod_info.out_port = ntohl(((ofp_flow_mod_t *)mu)->out_port);
+	port_ccb->flowmod_info.priority = ntohs(((ofp_flow_mod_t *)mu)->priority);
 	port_ccb->flowmod_info.table_id = ((ofp_flow_mod_t *)mu)->table_id;
 
 	//PRINT_MESSAGE((unsigned char *)&(((ofp_flow_mod_t *)mu)->match), 32);
@@ -191,10 +193,10 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 				puts("reach max match field limit");
 				break;
 			}
-			cur->oxm_union.oxm_value = htons(cur->oxm_union.oxm_value);
+			cur->oxm_union.oxm_value = ntohs(cur->oxm_union.oxm_value);
 			switch (cur->oxm_union.oxm_struct.oxm_field) {
 			case OFPXMT_OFB_IN_PORT:
-				port_ccb->flowmod_info.match_info[i].port_id = htonl(*(uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t)));
+				port_ccb->flowmod_info.match_info[i].port_id = ntohl(*(uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t)));
 				port_ccb->flowmod_info.match_info[i].type = PORT;
 				printf("match port id = %u\n", port_ccb->flowmod_info.match_info[i].port_id);
 				break;
@@ -207,7 +209,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 				port_ccb->flowmod_info.match_info[i].type = SRC_MAC;
 				break;
 			case OFPXMT_OFB_ETH_TYPE:
-				port_ccb->flowmod_info.match_info[i].ether_type = htons(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.match_info[i].ether_type = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = ETHER_TYPE;
 				break;
 			case OFPXMT_OFB_IP_PROTO:
@@ -215,28 +217,28 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 				port_ccb->flowmod_info.match_info[i].type = IP_PROTO;
 				break;
 			case OFPXMT_OFB_IPV4_SRC:
-				port_ccb->flowmod_info.match_info[i].ip_src = htonl(*((uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.match_info[i].ip_src = ntohl(*((uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = SRC_IP;
 				printf("match ip src = %u\n", port_ccb->flowmod_info.match_info[i].ip_src);
 				break;
 			case OFPXMT_OFB_IPV4_DST:
-				port_ccb->flowmod_info.match_info[i].ip_dst = htonl(*((uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.match_info[i].ip_dst = ntohl(*((uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = DST_IP;
 				break;
 			case OFPXMT_OFB_TCP_SRC:
-				port_ccb->flowmod_info.match_info[i].src_port = htonl(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.match_info[i].src_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = SRC_PORT;
 				break;
 			case OFPXMT_OFB_TCP_DST:
-				port_ccb->flowmod_info.match_info[i].dst_port = htonl(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.match_info[i].dst_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = DST_PORT;
 				break;
 			case OFPXMT_OFB_UDP_SRC:
-				port_ccb->flowmod_info.match_info[i].src_port = htonl(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.match_info[i].src_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = SRC_PORT;
 				break;
 			case OFPXMT_OFB_UDP_DST:
-				port_ccb->flowmod_info.match_info[i].dst_port = htonl(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.match_info[i].dst_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = DST_PORT;
 				break;
 			default:
@@ -260,13 +262,13 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	ofp_instruction_actions = (ofp_instruction_actions_t *)(mu + sizeof(ofp_flow_mod_t) - sizeof(struct ofp_match) + padding);
 	ofp_action_header_t *ofp_action_header = (ofp_action_header_t *)(((U8 *)ofp_instruction_actions) + sizeof(ofp_instruction_actions_t));
 	ofp_oxm_header_t *ofp_oxm_header = (ofp_oxm_header_t *)(ofp_action_header->pad);
-	uint16_t action_len = htons(ofp_instruction_actions->len) - sizeof(ofp_instruction_actions_t);
+	uint16_t action_len = ntohs(ofp_instruction_actions->len) - sizeof(ofp_instruction_actions_t);
 	//PRINT_MESSAGE(ofp_instruction_actions, 16);
 	uint16_t len = 0;
 	int i = 0;
 	memset(port_ccb->flowmod_info.action_info, 0, 20*sizeof(pkt_info_t));
 	//pkt_info_t *head_action_info = NULL, *cur_action_info;
-	for(U8 *cur=(U8 *)ofp_action_header;; len+=htons(((ofp_action_header_t *)cur)->len),cur+=len,i++) {
+	for(U8 *cur=(U8 *)ofp_action_header;; len+=ntohs(((ofp_action_header_t *)cur)->len),cur+=len,i++) {
 		if (i >= 20) {
 			puts("Reach max flowmod action list, drop remaining actions");
 			break;
@@ -277,10 +279,10 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 		if (((ofp_action_header_t *)cur)->type == htons(OFPAT_SET_FIELD)) {
 			//pkt_info_t *new_action = (pkt_info_t *)malloc(sizeof(pkt_info_t));
 			ofp_action_set_field_t *ofp_action_set_field = (ofp_action_set_field_t *)cur;
-			ofp_oxm_header->oxm_union.oxm_value = htons(ofp_oxm_header->oxm_union.oxm_value);
+			ofp_oxm_header->oxm_union.oxm_value = ntohs(ofp_oxm_header->oxm_union.oxm_value);
 			switch (ofp_oxm_header->oxm_union.oxm_struct.oxm_field) {
 			case OFPXMT_OFB_IN_PORT:
-				port_ccb->flowmod_info.action_info[i].port_id = htonl(*(uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t)));
+				port_ccb->flowmod_info.action_info[i].port_id = ntohl(*(uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t)));
 				port_ccb->flowmod_info.action_info[i].type = PORT;
 				break;
 			case OFPXMT_OFB_ETH_DST:
@@ -292,7 +294,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 				port_ccb->flowmod_info.action_info[i].type = SRC_MAC;
 				break;
 			case OFPXMT_OFB_ETH_TYPE:
-				port_ccb->flowmod_info.action_info[i].ether_type = htons(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.action_info[i].ether_type = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.action_info[i].type = ETHER_TYPE;
 				break;
 			case OFPXMT_OFB_IP_PROTO:
@@ -300,28 +302,28 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 				port_ccb->flowmod_info.action_info[i].type = IP_PROTO;
 				break;
 			case OFPXMT_OFB_IPV4_SRC:
-				port_ccb->flowmod_info.action_info[i].ip_src = htonl(*((uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.action_info[i].ip_src = ntohl(*((uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.action_info[i].type = SRC_IP;
 				break;
 			case OFPXMT_OFB_IPV4_DST:
-				port_ccb->flowmod_info.action_info[i].ip_dst = htonl(*((uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.action_info[i].ip_dst = ntohl(*((uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.action_info[i].type = DST_IP;
 				printf("action ip dst = %u\n", port_ccb->flowmod_info.action_info[i].ip_dst);
 				break;
 			case OFPXMT_OFB_TCP_SRC:
-				port_ccb->flowmod_info.action_info[i].src_port = htonl(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.action_info[i].src_port = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.action_info[i].type = SRC_PORT;
 				break;
 			case OFPXMT_OFB_TCP_DST:
-				port_ccb->flowmod_info.action_info[i].dst_port = htonl(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.action_info[i].dst_port = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.action_info[i].type = DST_PORT;
 				break;
 			case OFPXMT_OFB_UDP_SRC:
-				port_ccb->flowmod_info.action_info[i].src_port = htonl(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.action_info[i].src_port = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.action_info[i].type = SRC_PORT;
 				break;
 			case OFPXMT_OFB_UDP_DST:
-				port_ccb->flowmod_info.action_info[i].dst_port = htonl(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->flowmod_info.action_info[i].dst_port = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.action_info[i].type = DST_PORT;
 				break;
 			default:
@@ -339,8 +341,8 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 		else if(((ofp_action_header_t *)cur)->type == htons(OFPAT_OUTPUT)) {
 			//pkt_info_t *new_action = (pkt_info_t *)malloc(sizeof(pkt_info_t));
 			ofp_action_output_t *ofp_action_output = (ofp_action_output_t *)cur;
-			port_ccb->flowmod_info.action_info[i].max_len = htons(ofp_action_output->max_len);
-			port_ccb->flowmod_info.action_info[i].port_id = htonl(ofp_action_output->port);
+			port_ccb->flowmod_info.action_info[i].max_len = ntohs(ofp_action_output->max_len);
+			port_ccb->flowmod_info.action_info[i].port_id = ntohl(ofp_action_output->port);
 			port_ccb->flowmod_info.action_info[i].type = PORT;
 			//PRINT_MESSAGE(cur,16);
 			printf("action port id = %u %u\n", port_ccb->flowmod_info.action_info[i].port_id, htonl(ofp_action_output->port));
@@ -363,6 +365,115 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	//printf("flowmod_info action len = %u\n", port_ccb->flowmod_info.action_info[i]max_len);
 	port_ccb->flowmod_info.action_info[--i].is_tail = TRUE;
 	//PRINT_MESSAGE(port_ccb->flowmod_info.match_info,sizeof(pkt_info_t)*20);
+	return TRUE;
+}
+STATUS OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) 
+{
+	ofp_packet_out_t *ofp_packet_out = (ofp_packet_out_t *)mu;
+	uint16_t len = 0, action_len = ntohs(ofp_packet_out->actions_len);
+	int i = 0;
+	ofp_action_header_t *ofp_action_header = (ofp_action_header_t *)(mu + sizeof(ofp_packet_out_t));
+	ofp_oxm_header_t *ofp_oxm_header = (ofp_oxm_header_t *)(ofp_action_header->pad);
+
+	port_ccb->packet_out_info.msg_type = PACKET_OUT;
+	port_ccb->packet_out_info.msg_len = sizeof(packet_out_info_t) - ETH_MTU + mulen - action_len - sizeof(ofp_packet_out_t);
+	port_ccb->packet_out_info.buffer_id = ntohl(ofp_packet_out->buffer_id);
+	port_ccb->packet_out_info.in_port = ntohl(ofp_packet_out->in_port);
+	memcpy(port_ccb->packet_out_info.ofpbuf, (U8 *)ofp_action_header + action_len, mulen - action_len - sizeof(ofp_packet_out_t));
+	
+	for(U8 *cur=(U8 *)ofp_action_header;; len+=ntohs(((ofp_action_header_t *)cur)->len),cur+=len,i++) {
+		if (i >= 20) {
+			puts("Reach max packet_out action list, drop remaining actions");
+			break;
+		}
+		//printf("total len = %u %u\n", len, action_len);
+		if (len == action_len)
+			break;
+		if (((ofp_action_header_t *)cur)->type == htons(OFPAT_SET_FIELD)) {
+			//pkt_info_t *new_action = (pkt_info_t *)malloc(sizeof(pkt_info_t));
+			//ofp_action_set_field_t *ofp_action_set_field = (ofp_action_set_field_t *)cur;
+			ofp_oxm_header->oxm_union.oxm_value = ntohs(ofp_oxm_header->oxm_union.oxm_value);
+			switch (ofp_oxm_header->oxm_union.oxm_struct.oxm_field) {
+			/*case OFPXMT_OFB_IN_PORT:
+				port_ccb->packet_out_info.action_info[i].port_id = ntohl(*(uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t)));
+				port_ccb->packet_out_info.action_info[i].type = PORT;
+				break;*/
+			case OFPXMT_OFB_ETH_DST:
+				memcpy(port_ccb->packet_out_info.action_info[i].dst_mac, ((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t), ETH_ALEN);
+				port_ccb->packet_out_info.action_info[i].type = DST_MAC;
+				break;
+			case OFPXMT_OFB_ETH_SRC:
+				memcpy(port_ccb->packet_out_info.action_info[i].src_mac, ((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t), ETH_ALEN);
+				port_ccb->packet_out_info.action_info[i].type = SRC_MAC;
+				break;
+			case OFPXMT_OFB_ETH_TYPE:
+				port_ccb->packet_out_info.action_info[i].ether_type = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->packet_out_info.action_info[i].type = ETHER_TYPE;
+				break;
+			case OFPXMT_OFB_IP_PROTO:
+				port_ccb->packet_out_info.action_info[i].ip_proto = *(U8 *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t));
+				port_ccb->packet_out_info.action_info[i].type = IP_PROTO;
+				break;
+			case OFPXMT_OFB_IPV4_SRC:
+				port_ccb->packet_out_info.action_info[i].ip_src = ntohl(*((uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->packet_out_info.action_info[i].type = SRC_IP;
+				break;
+			case OFPXMT_OFB_IPV4_DST:
+				port_ccb->packet_out_info.action_info[i].ip_dst = ntohl(*((uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->packet_out_info.action_info[i].type = DST_IP;
+				printf("action ip dst = %u\n", port_ccb->packet_out_info.action_info[i].ip_dst);
+				break;
+			case OFPXMT_OFB_TCP_SRC:
+				port_ccb->packet_out_info.action_info[i].src_port = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->packet_out_info.action_info[i].type = SRC_PORT;
+				break;
+			case OFPXMT_OFB_TCP_DST:
+				port_ccb->packet_out_info.action_info[i].dst_port = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->packet_out_info.action_info[i].type = DST_PORT;
+				break;
+			case OFPXMT_OFB_UDP_SRC:
+				port_ccb->packet_out_info.action_info[i].src_port = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->packet_out_info.action_info[i].type = SRC_PORT;
+				break;
+			case OFPXMT_OFB_UDP_DST:
+				port_ccb->packet_out_info.action_info[i].dst_port = ntohs(*((uint16_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t))));
+				port_ccb->packet_out_info.action_info[i].type = DST_PORT;
+				break;
+			default:
+				break;
+			}
+			/*if (head_action_info == NULL) {
+				head_action_info = new_action;
+				cur_action_info = head_action_info;
+			}
+			else {
+				cur_action_info->next = new_action;
+				cur_action_info = cur_action_info->next;
+			}*/
+		}
+		else if(((ofp_action_header_t *)cur)->type == htons(OFPAT_OUTPUT)) {
+			//pkt_info_t *new_action = (pkt_info_t *)malloc(sizeof(pkt_info_t));
+			ofp_action_output_t *ofp_action_output = (ofp_action_output_t *)cur;
+			port_ccb->packet_out_info.action_info[i].max_len = ntohs(ofp_action_output->max_len);
+			port_ccb->packet_out_info.action_info[i].port_id = ntohl(ofp_action_output->port);
+			port_ccb->packet_out_info.action_info[i].type = PORT;
+			//PRINT_MESSAGE(cur,16);
+			printf("action port id = %u %u\n", port_ccb->packet_out_info.action_info[i].port_id, ntohl(ofp_action_output->port));
+			/*if (head_action_info == NULL) {
+				head_action_info = new_action;
+				cur_action_info = head_action_info;
+			}
+			else {
+				cur_action_info->next = new_action;
+				cur_action_info = cur_action_info->next;
+			}*/
+		}
+		else {
+			printf("action type = %u\n", ntohs(((ofp_action_header_t *)cur)->type));
+			puts("Unsupported packet_out action");
+		}
+	}
+
 	return TRUE;
 }
 

@@ -26,6 +26,7 @@ extern flow_t flow[256];
 
 extern STATUS find_flow(pkt_info_t pkt_info, uint32_t *flow_index);
 extern STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head);
+extern void dp_drv_xmit(U8 *mu, U16 mulen, uint16_t port_id, dp_io_fds_t *dp_io_fds_head);
 
 /*============================ DECODE ===============================*/
 
@@ -107,10 +108,10 @@ STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id, uint32_t *flow_index)
 			return FALSE;
 		}
 		return TRUE;
-	case IPPROTO_TCP:
+	/*case IPPROTO_TCP:
 		if (parse_tcp(eth_hdr, ip_hdr, port_id, flow_index) == FALSE)
 			return FALSE;
-		return TRUE;
+		return TRUE;*/
 	case IPPROTO_UDP:
 		if (parse_udp(eth_hdr, ip_hdr, port_id, flow_index) == FALSE)
 			return FALSE;
@@ -156,4 +157,50 @@ STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id,
 		return FALSE;
 	}
 	return TRUE;
+}
+
+STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head)
+{
+	U8 *mu = packet_out_info.ofpbuf;
+	U16 mulen = packet_out_info.msg_len - sizeof(packet_out_info_t);
+
+	for(int i = 0;; i++) {
+		if (i >= 20) {
+			puts("reach max number action field in pkt_out");
+			return FALSE;
+		}
+		printf("aciton type = %u\n", packet_out_info.action_info[i].type);
+		switch (packet_out_info.action_info[i].type) {
+		case PORT:
+			dp_drv_xmit(mu, mulen, packet_out_info.action_info[i].port_id, dp_io_fds_head);
+			return TRUE;
+		case DST_MAC:
+			memcpy(mu, packet_out_info.action_info[i].dst_mac, ETH_ALEN);
+			break;
+		case SRC_MAC:
+			memcpy(mu+ETH_ALEN, packet_out_info.action_info[i].src_mac, ETH_ALEN);
+			break;
+		case ETHER_TYPE:
+			((struct ethhdr *)mu)->h_proto = htons(packet_out_info.action_info[i].ether_type);
+			break;
+		case DST_IP:
+			((struct iphdr *)(((struct ethhdr *)mu) + 1))->daddr = htonl(packet_out_info.action_info[i].ip_dst);
+			break;
+		case SRC_IP:
+			((struct iphdr *)(((struct ethhdr *)mu) + 1))->saddr = htonl(packet_out_info.action_info[i].ip_src);
+			break;
+		case IP_PROTO:
+			((struct iphdr *)(((struct ethhdr *)mu) + 1))->protocol = packet_out_info.action_info[i].ip_proto;
+			break;
+		case DST_PORT:
+			*(uint16_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1) = htons(packet_out_info.action_info[i].dst_port);
+			break;
+		case SRC_PORT:
+			*(((uint16_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1)) + 1) = htons(packet_out_info.action_info[i].src_port);	
+			break;
+		default:
+			break;
+		}
+	}
+	return FALSE;
 }

@@ -50,8 +50,7 @@ To remove the binary files
 ## Note:
 
 1. This implementation is under OpenFlow protocol 1.3
-2. PacketOut OF packets are only print out and will do nothing so far.
-3. In Flowmod, I only implementation Flowmod type - "add flow" so far.
+2. In Flowmod, I only implementation Flowmod type - "add flow" so far.
 
 ## Test environment:
 
@@ -61,5 +60,4 @@ To remove the binary files
 
 ## TODO:
 
-1. Make PacketOut be able to interact with this OpenFlow software switch
-2. implementation Flowmod type - "delete flow" and flow timeout.
+1. implementation Flowmod type - "delete flow" and flow timeout.

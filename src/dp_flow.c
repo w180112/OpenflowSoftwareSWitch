@@ -100,12 +100,12 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 			type = ((ip_proto_t *)cur)->type;
 			break;
 		case DST_PORT:
-			*(uint8_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1) = ((dst_port_t *)cur)->dst_port;
+			*(uint16_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1) = htons(((dst_port_t *)cur)->dst_port);
 			cur = (void *)(((dst_port_t *)cur)->next);
 			type = ((dst_port_t *)cur)->type;
 			break;
 		case SRC_PORT:
-			*(((uint8_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1)) + 1) = ((src_port_t *)cur)->src_port;
+			*(((uint16_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1)) + 1) = htons(((src_port_t *)cur)->src_port);
 			cur = (void *)(((src_port_t *)cur)->next);
 			type = ((src_port_t *)cur)->type;
 			break;
