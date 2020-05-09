@@ -17,13 +17,9 @@
 #include 		<unistd.h>
 #include 		<signal.h>
 
-void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
-STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
-STATUS OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
-STATUS insert_node(host_learn_t **head, host_learn_t *node);
-host_learn_t *find_node(host_learn_t *head, uint32_t buffer_id);
-STATUS ip_hdr_init(tIP_PKT *ip_hdr, uint32_t src_ip, uint32_t dst_ip);
-STATUS udp_hdr_init(tUDP_PKT *udp_hdr, uint8_t *payload);
+void 	OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
+STATUS 	OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
+STATUS 	OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
 
 extern pid_t ofp_cp_pid;
 extern pid_t ofp_dp_pid;
@@ -40,9 +36,9 @@ extern pid_t tmr_pid;
  *****************************************************/
 STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 {
-    U16	mulen;
-	U8	*mu;
-	tOFP_MSG *msg;
+    U16			mulen;
+	U8			*mu;
+	tOFP_MSG 	*msg;
 	
 	if (mail->len > ETH_MTU) {
 	    DBG_OFP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
@@ -80,18 +76,16 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 		break;
 	case OFPT_ECHO_REPLY:
 		port_ccb->event = E_ECHO_REPLY;
-		//printf("----------------------------------\nrecv echo reply\n");
 		break;
 	case OFPT_FLOW_MOD:
 		port_ccb->event = E_FLOW_MOD;
 		printf("----------------------------------\nrecv flow mod\n");
 		OFP_decode_flowmod(port_ccb, mu, mulen);
-		//PRINT_MESSAGE(mu, mulen);
 		break;
 	case OFPT_PACKET_OUT:
 		port_ccb->event = E_PACKET_OUT;
 		printf("----------------------------------\nrecv packet out\n");
-		PRINT_MESSAGE(mu, mulen);
+		//PRINT_MESSAGE(mu, mulen);
 		OFP_decode_packet_out(port_ccb, mu, mulen);
 		break;
 	default:
@@ -103,10 +97,10 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 
 /*============================== ENCODING ===============================*/
 void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb) {
-	U16	mulen;
-	U8	*mu;
+	U16			mulen;
+	U8			*mu;
 	tDP2OFP_MSG *msg;
-	int buffer_id;
+	int 		buffer_id;
 
 	msg = (tDP2OFP_MSG *)(mail->refp);
 	//ofp_ports[0].sockfd = msg->sockfd;
@@ -147,19 +141,6 @@ void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb) {
 	memcpy(port_ccb->ofpbuf+sizeof(ofp_packet_in_t)+sizeof(uint32_t)+6,mu,mulen);
 	port_ccb->ofpbuf_len = mulen + sizeof(ofp_packet_in_t) + 2 + 4 + sizeof(uint32_t);
 	printf("----------------------------------\nencode packet in\n");
-
-#if 0 
-	// use linked list instead
-	host_learn_t *node = malloc(sizeof(host_learn_t));
-	memcpy(node->dst_mac,mu,MAC_ADDR_LEN);
-	memcpy(node->src_mac,mu+MAC_ADDR_LEN,MAC_ADDR_LEN);
-	node->src_ip = *((uint32_t *)(mu + ETH_HDR_LEN + ETH_TYPE_LEN + 12/* IP header except IP */));
-	node->dst_ip = *((uint32_t *)(mu + ETH_HDR_LEN + ETH_TYPE_LEN + 12/* IP header except IP */ + IP_ADDR_LEN));
-	node->buffer_id = buffer_id;
-	node->next = NULL;
-	insert_node(&(port_ccb->head),node);
-	buffer_id++;
-#endif
 }
 
 STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) 
@@ -188,8 +169,9 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	else {
 		int i = 0;
 		//PRINT_MESSAGE(&(((ofp_flow_mod_t *)mu)->match.oxm_header), match_len);
+		/* sotre match fields with a for loop, in each time loop we store match types */
 		for(ofp_oxm_header_t *cur = &(((ofp_flow_mod_t *)mu)->match.oxm_header); match_len>0; i++) {
-			if (i > 20) {
+			if (i > 20) { // we only store up to 20 match fields
 				puts("reach max match field limit");
 				break;
 			}
@@ -255,6 +237,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 		padding = (((match_len + sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type)) >> 3) + 1) << 3;
 	else
 		padding = ((match_len + sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type)) >> 3) << 3;*/
+	/* make the match field length alignment */
 	if ((match_len << 13) > 0)
 		padding = ((match_len >> 3) + 1) << 3;
 	else
@@ -281,10 +264,10 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 			ofp_action_set_field_t *ofp_action_set_field = (ofp_action_set_field_t *)cur;
 			ofp_oxm_header->oxm_union.oxm_value = ntohs(ofp_oxm_header->oxm_union.oxm_value);
 			switch (ofp_oxm_header->oxm_union.oxm_struct.oxm_field) {
-			case OFPXMT_OFB_IN_PORT:
+			/*case OFPXMT_OFB_IN_PORT:
 				port_ccb->flowmod_info.action_info[i].port_id = ntohl(*(uint32_t *)(((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t)));
 				port_ccb->flowmod_info.action_info[i].type = PORT;
-				break;
+				break;*/
 			case OFPXMT_OFB_ETH_DST:
 				memcpy(port_ccb->flowmod_info.action_info[i].dst_mac, ((U8 *)ofp_oxm_header) + sizeof(ofp_oxm_header_t), ETH_ALEN);
 				port_ccb->flowmod_info.action_info[i].type = DST_MAC;
@@ -344,7 +327,6 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 			port_ccb->flowmod_info.action_info[i].max_len = ntohs(ofp_action_output->max_len);
 			port_ccb->flowmod_info.action_info[i].port_id = ntohl(ofp_action_output->port);
 			port_ccb->flowmod_info.action_info[i].type = PORT;
-			//PRINT_MESSAGE(cur,16);
 			printf("action port id = %u %u\n", port_ccb->flowmod_info.action_info[i].port_id, htonl(ofp_action_output->port));
 			/*if (head_action_info == NULL) {
 				head_action_info = new_action;
@@ -369,11 +351,11 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 }
 STATUS OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) 
 {
-	ofp_packet_out_t *ofp_packet_out = (ofp_packet_out_t *)mu;
-	uint16_t len = 0, action_len = ntohs(ofp_packet_out->actions_len);
-	int i = 0;
+	ofp_packet_out_t 	*ofp_packet_out = (ofp_packet_out_t *)mu;
+	uint16_t 			len = 0, action_len = ntohs(ofp_packet_out->actions_len);
+	int 				i = 0;
 	ofp_action_header_t *ofp_action_header = (ofp_action_header_t *)(mu + sizeof(ofp_packet_out_t));
-	ofp_oxm_header_t *ofp_oxm_header = (ofp_oxm_header_t *)(ofp_action_header->pad);
+	ofp_oxm_header_t 	*ofp_oxm_header = (ofp_oxm_header_t *)(ofp_action_header->pad);
 
 	port_ccb->packet_out_info.msg_type = PACKET_OUT;
 	port_ccb->packet_out_info.msg_len = sizeof(packet_out_info_t) - ETH_MTU + mulen - action_len - sizeof(ofp_packet_out_t);
@@ -476,95 +458,3 @@ STATUS OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 
 	return TRUE;
 }
-
-STATUS insert_node(host_learn_t **head, host_learn_t *node)
-{
-	host_learn_t *cur;
-
-	if (*head == NULL) {
-		*head = node;
-	}
-	for(cur=*head; cur->next!=NULL; cur=cur->next);
-	cur->next = node;
-	return TRUE;
-}
-
-host_learn_t *find_node(host_learn_t *head, uint32_t buffer_id)
-{
-	host_learn_t *prev = NULL, *cur = head;
-	for(;;prev=cur, cur=cur->next) {
-		if (cur == NULL)
-			return NULL;
-		if (cur->buffer_id == buffer_id) {
-			if (prev != NULL)
-				prev->next = cur->next;
-			return cur; 
-		}
-	}
-}
-
-STATUS ip_hdr_init(tIP_PKT *ip_hdr, uint32_t src_ip, uint32_t dst_ip)
-{
-	ip_hdr->ver_ihl.ver = 4;
-	ip_hdr->ver_ihl.IHL = 5;
-	ip_hdr->tos = 0;
-	ip_hdr->total_len = 36;
-	ip_hdr->id = 1;
-	ip_hdr->flag_frag.flag = 2;
-	ip_hdr->flag_frag.frag_off = 0;
-	ip_hdr->ttl = 64;
-	ip_hdr->proto = PROTO_TYPE_UDP;
-	memcpy(ip_hdr->cSA,&dst_ip,IP_ADDR_LEN);
-	memcpy(ip_hdr->cDA,&src_ip,IP_ADDR_LEN);
-
-	return TRUE;
-}
-
-STATUS udp_hdr_init(tUDP_PKT *udp_hdr, uint8_t *payload)
-{
-	udp_hdr->src = 6655;
-	udp_hdr->dst = 8000;
-	udp_hdr->len = 16;
-	udp_hdr->data = payload;
-	return TRUE;
-}
-
-#if 0
-/*************************************************************************
- * OFP_encode_frame
- *
- * input : 
- *         omsg - ofp msg structure
- * output: mu - for buffer encoded message
- *         mulen - total omsg packet length after encoding.
- *************************************************************************/
-void OFP_encode_hello(tOFP_MSG *omsg, U8 *mu, U16 *mulen)
-{
-	U8	*mp,i;
-	
-	mp = mu;
-	memcpy(mp,ofp_da_mac,MAC_ADDR_LEN); /* from 2nd to 1st */
-	mp += MAC_ADDR_LEN; /* DA */
-
-	memcpy(mp,g_loc_mac,MAC_ADDR_LEN);
-	mp += MAC_ADDR_LEN; /* SA = ??? */
-	
-	#if 0
-	mp = ENCODE_U16(mp,0x8100); /* pre-2-bytes of VLAN TAG */
-	mp = ENCODE_U16(mp,vid); /* post-2-bytes of VLAN TAG */
-	#endif
-	
-	//ethernet type
-	mp = ENCODE_U16(mp,(U16)ETH_TYPE_OFP);
-
-	//ofp message	
-	mp += ENCODE_OFP_TLVs(omsg->tlvs, mp);
-	
-	*mulen = mp - mu;
-	if (*mulen < MIN_FRAME_SIZE){
-		for(i=*mulen; i<MIN_FRAME_SIZE; i++)  *mp++ = 0;
-		*mulen = MIN_FRAME_SIZE;  
-	}
-	//PRINT_MESSAGE(mu,*mulen);
-}
-#endif

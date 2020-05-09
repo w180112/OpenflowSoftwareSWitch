@@ -1,3 +1,9 @@
+/*\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
+  dp.c
+  
+  Created by THE on MAR 11,'20
+\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
+
 #include        	<common.h>
 #include 			<ipc.h>
 #include        	"ofpd.h"
@@ -12,7 +18,7 @@ typedef struct q {
 	struct q *next;
 }q_t;
 
-flow_t flow[256];
+flow_t flow[256]; //flow table
 
 extern STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id);
 extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
@@ -50,6 +56,7 @@ void dp(tIPC_ID dpQid)
 		
 		switch(ipc_type){
 		case IPC_EV_TYPE_DRV:
+			/* recv pkts from dp */
 			mail = (tOFP_MBX*)mbuf.mtext;
 			//PRINT_MESSAGE(((tDP_MSG *)(mail->refp))->buffer,(mail->len) - (sizeof(int) + sizeof(uint16_t)));
 			//ofp_ports[port].port = TEST_PORT_ID;
@@ -63,7 +70,7 @@ void dp(tIPC_ID dpQid)
 						continue;
 					enq_pkt_in(mail,&q_head,id);
 					id++;
-					if (id > 0xfffffffe)
+					if (id >= 0xfffffffe)
 						id = 1;
 				}
 				else 

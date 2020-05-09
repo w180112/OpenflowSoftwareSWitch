@@ -27,7 +27,7 @@ to compile
 
 Then
 
-	# ./osw <OpenFlow NIC name>
+	# ./osw <OpenFlow NIC name> <SDN controller ip>
 
 If OpenFlow connection is established, a simple console interface will show
 

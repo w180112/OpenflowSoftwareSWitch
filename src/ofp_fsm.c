@@ -173,8 +173,8 @@ STATUS A_send_echo_request(tOFP_PORT *port_ccb)
  *********************************************************************/
 STATUS A_send_feature_reply(tOFP_PORT *port_ccb)	
 {
-	unsigned char buffer[256];
-	ofp_switch_features_t ofp_switch_features;
+	unsigned char 			buffer[256];
+	ofp_switch_features_t 	ofp_switch_features;
 	//struct ifaddrs *ifaddr;
 	//struct ifaddrs *ifa;
 
@@ -277,11 +277,11 @@ STATUS A_send_multipart_reply(tOFP_PORT *port_ccb)
 {
 	ofp_multipart_t ofp_multipart;
 	struct ofp_port ofp_port_desc;
-	struct ifaddrs *ifaddr; 
-	struct ifaddrs *ifa;
-	U8 buf[1024];
-	uintptr_t buf_ptr;
-	int i;
+	struct ifaddrs 	*ifaddr; 
+	struct ifaddrs 	*ifa;
+	U8 				buf[1024];
+	uintptr_t 		buf_ptr;
+	int 			i;
 
 	if (getifaddrs(&ifaddr) == -1) {
     	perror("getifaddrs");

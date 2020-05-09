@@ -35,12 +35,12 @@ fd_set			ofp_io_ready[2];
  * - from string to ulong
  *   inet_aton("10.5.5.217", (struct in_addr*)cSA_ip); 
  **************************************************************************/ 
-int OFP_SOCK_INIT(char *if_name) 
+int OFP_SOCK_INIT(char *if_name, char *ctrl_ip) 
 {
 	struct sockaddr_in 			sock_info[2], local_sock_info[2];
 	struct sock_fprog  			Filter;
 	struct ifreq 				ifr;
-	static struct sock_filter  	BPF_code[]={
+	static struct sock_filter  	BPF_code[] = {
 		{ 0x28, 0, 0, 0x0000000c },
 		{ 0x15, 0, 10, 0x00000800 },
 		{ 0x20, 0, 0, 0x0000001e },
@@ -76,7 +76,7 @@ int OFP_SOCK_INIT(char *if_name)
     
 	bzero(&sock_info[0], sizeof(sock_info[0]));
     sock_info[0].sin_family = PF_INET;
-    sock_info[0].sin_addr.s_addr = inet_addr("192.168.10.172");
+    sock_info[0].sin_addr.s_addr = inet_addr(ctrl_ip);
     sock_info[0].sin_port = htons(6653);
     
 	ifr.ifr_addr.sa_family = AF_INET;
@@ -248,10 +248,7 @@ void drv_xmit(U8 *mu, U16 mulen, int sockfd)
 {
 	//printf("\ndrv_xmit ............\n");
 	//PRINT_MESSAGE((unsigned char*)mu, mulen);
-	//if (sockfd == ofp_io_fds[0])
-		send(sockfd, mu, mulen, 0);
-	//else
-		//sendto(sockfd, mu, mulen, 0, (struct sockaddr*)&sll, sizeof(sll));
+	send(sockfd, mu, mulen, 0);
 }
 
 /*********************************************************

@@ -18,7 +18,7 @@ extern "C" {
 #define DRIV_FAIL 2
 
 extern void           drv_xmit(U8 *mu, U16 mulen, int fd_id);
-extern int 						OFP_SOCK_INIT(char *if_name);
+extern int 						OFP_SOCK_INIT(char *if_name, char *ctrl_ip);
 extern void 					ofp_sockd_cp();
 extern void 					ofp_sockd_dp();
 extern STATUS 			  ofp_send2mailbox(U8 *mu, int mulen);

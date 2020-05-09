@@ -19,7 +19,6 @@
 #define JUMBO_MTU				9000
 #define TEST_PORT_ID			1
 
-#define IF_NAME 				"enp1s0"
 #define	MIN_FRAME_SIZE			64
 #define	MAX_QUE_EVT_CNT			(MBOX_QUE_SIZE/2)
 #define _PBM(port)				(1<<(port-1))
@@ -27,53 +26,18 @@
 #define MAX_USER_PORT_NUM		10
 #define MAX_OFP_QUERY_NUM		10
 
-typedef struct {
-	U8		subt;
-	U16		len;
-	U8		value[255];
-} tSUB_VAL;
-
-//========= system capability ===========
-typedef struct {
-	U16		cap_map;
-	U16		en_map;
-} tSYS_CAP;
-
-//========= management address ===========
-typedef struct {
-	U8		addr_strlen; //addr_subt + addr[]
-	U8		addr_subt;
-	U8		addr[31];
-	
-	U8		if_subt;
-	U32		if_no;
-	
-	U8		oid_len;
-	U32		oids[128];
-} tMNG_ADDR;
-
-typedef struct host_learn {
-	unsigned char src_mac[MAC_ADDR_LEN];
-	unsigned char dst_mac[MAC_ADDR_LEN];
-	uint32_t src_ip;
-	uint32_t dst_ip;
-	uint16_t src_port;
-	uint32_t buffer_id;
-	struct host_learn *next;
-}host_learn_t;
-
 typedef struct flowmod_info {
-	uint8_t	msg_type;
-	U16		msg_len; 
-    uint64_t cookie;
-    uint8_t table_id;
-    uint8_t command;
-    uint16_t idle_timeout; 
-    uint16_t hard_timeout;
-    uint16_t priority;
-    uint32_t buffer_id;
-    uint32_t out_port; 
-    uint32_t out_group;
+	uint8_t		msg_type;
+	U16			msg_len; 
+    uint64_t 	cookie;
+    uint8_t 	table_id;
+    uint8_t 	command;
+    uint16_t 	idle_timeout; 
+    uint16_t 	hard_timeout;
+    uint16_t 	priority;
+    uint32_t 	buffer_id;
+    uint32_t 	out_port; 
+    uint32_t 	out_group;
     pkt_info_t	match_info[20];
 	pkt_info_t	action_info[20];
 	BOOL 		is_tail;
@@ -96,32 +60,22 @@ enum {
 
 //========= The structure of port ===========
 typedef struct {
-	BOOL		enable;
-	U8 			state;
-	U8			query_cnt;
-	U16			port;
+	BOOL				enable;
+	U8 					state;
+	U8					query_cnt;
+	U16					port;
 
-	U32			imsg_cnt;
-	U32			omsg_cnt;
-	U32			err_imsg_cnt;	
-	
-	tSUB_VAL	port_id;
-
-	char of_ifname[16];
-	
-	tSYS_CAP	sys_cap;
-	tMNG_ADDR  	mng_addr;
-
-	int 		sockfd;
-	U16			event;
-	ofp_header_t ofp_header;
-	ofp_multipart_t ofp_multipart;
-	ofp_packet_in_t ofp_packet_in;
-	flowmod_info_t flowmod_info;
-	packet_out_info_t packet_out_info;
-	U8 			ofpbuf[ETH_MTU];
-	uint16_t 	ofpbuf_len;
-	host_learn_t *head;
+	char 				of_ifname[16];
+	char 				ctrl_ip[16];
+	int 				sockfd;
+	U16					event;
+	ofp_header_t 		ofp_header;
+	ofp_multipart_t 	ofp_multipart;
+	ofp_packet_in_t 	ofp_packet_in;
+	flowmod_info_t 		flowmod_info;
+	packet_out_info_t 	packet_out_info;
+	U8 					ofpbuf[ETH_MTU];
+	uint16_t 			ofpbuf_len;
 } tOFP_PORT;
 
 extern U8	 		g_loc_mac[]; //system mac addr -- global variable

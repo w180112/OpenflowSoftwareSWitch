@@ -19,7 +19,6 @@
 #include			"ofp_cmd.h"
 #include 			"dp_sock.h"
 
-BOOL				ofp_testEnable=FALSE;
 U32					ofp_ttl;
 U32					ofp_interval;
 U16					ofp_init_delay;
@@ -36,11 +35,7 @@ extern void 		sockd_dp(dp_io_fds_t *dp_io_fds_head);
 extern void 		dp(tIPC_ID dpQid);
 extern void 		OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 
-pid_t ofp_cp_pid;
-pid_t ofp_dp_pid;
-pid_t dp_pid = 0;
-pid_t ofp_cmd_pid;
-pid_t tmr_pid;
+pid_t ofp_cp_pid, ofp_dp_pid, dp_pid = 0, ofp_cmd_pid, tmr_pid;
 
 /*---------------------------------------------------------
  * ofp_bye : signal handler for INTR-C only
@@ -95,11 +90,11 @@ STATUS DP_ipc_init(void)
  * ofpdInit: 
  *
  **************************************************************/
-int ofpdInit(char *of_ifname)
+int ofpdInit(char *of_ifname, char *ctrl_ip)
 {
 	U16  i;
 	
-	if (OFP_SOCK_INIT(of_ifname) < 0){ //must be located ahead of system init
+	if (OFP_SOCK_INIT(of_ifname, ctrl_ip) < 0){ //must be located ahead of system init
 		return -1;
 	}
 	
@@ -113,16 +108,11 @@ int ofpdInit(char *of_ifname)
 		ofp_ports[i].query_cnt = 1;
 		ofp_ports[i].state = S_CLOSED;
 		ofp_ports[i].port = i;
-		
-		ofp_ports[i].imsg_cnt =
-		ofp_ports[i].err_imsg_cnt =
-		ofp_ports[i].omsg_cnt = 0;
-		ofp_ports[i].head = NULL;
 	}
 	
 	sleep(1);
+	ofp_ports[0].enable = TRUE;
 	ofp_max_msg_per_query = MAX_OFP_QUERY_NUM;
-	ofp_testEnable = TRUE; //to let driver ofp msg come in ...
 	DBG_OFP(DBGLVL1,NULL,"============ ofp init successfully ==============\n");
 
 	return 0;
@@ -159,12 +149,12 @@ int main(int argc, char **argv)
 	U16				ipc_type;
 	int 			ret;
 	
-	if (argc != 2) {
-		puts("Usage: ./osw <OpenFlow NIC name>");
+	if (argc != 3) {
+		puts("Usage: ./osw <OpenFlow NIC name> <SDN controller ip>");
 		return -1;
 	}
 
-	if (ofpdInit(argv[1]) < 0)
+	if (ofpdInit(argv[1], argv[2]) < 0)
 		return -1;
 	if (dp_init() < 0)
 		return -1;
@@ -183,7 +173,8 @@ int main(int argc, char **argv)
 	/*if ((ofp_dp_pid=fork()) == 0) {
    		ofp_sockd_dp();
     }*/
-	strncpy(ofp_ports[0].of_ifname, argv[1], 16);
+	strncpy(ofp_ports[0].of_ifname, argv[1], strlen(argv[1]));
+	strncpy(ofp_ports[0].ctrl_ip, argv[2], strlen(argv[2]));
     signal(SIGINT, OFP_bye);
 	ofp_ports[0].sockfd = ofp_io_fds[0];
     OFP_FSM(&ofp_ports[0], E_START);
@@ -196,19 +187,19 @@ int main(int argc, char **argv)
 	    	continue;
 	    }
 	    
-	    ipc_type = *(U16*)mbuf.mtext;
+	    ipc_type = *(U16 *)mbuf.mtext;
 	    //printf("ipc_type=%d\n",ipc_type);
 		
 		switch(ipc_type){
 		case IPC_EV_TYPE_TMR:
-			ipc_prim = (tIPC_PRIM*)mbuf.mtext;
+			ipc_prim = (tIPC_PRIM *)mbuf.mtext;
 			ccb = ipc_prim->ccb;
 			event = ipc_prim->evt;
 			OFP_FSM(ccb, event);
 			break;
 		
 		case IPC_EV_TYPE_DRV:
-			mail = (tOFP_MBX*)mbuf.mtext;
+			mail = (tOFP_MBX *)mbuf.mtext;
 			//ofp_ports[port].port = TEST_PORT_ID;
 			//DBG_OFP(DBGLVL1,&ofp_ports[0],"<-- Rx ofp message\n");
 			if ((ret=OFP_decode_frame(mail, &ofp_ports[0])) == ERROR)
@@ -216,7 +207,7 @@ int main(int argc, char **argv)
 			else if (ret == FALSE) {
 				for(;;) {
 					sleep(1);
-					if (ofpdInit(ofp_ports[0].of_ifname) == 0)
+					if (ofpdInit(ofp_ports[0].of_ifname, ofp_ports[0].ctrl_ip) == 0)
 						break;
 				}
 				if ((ofp_cp_pid=fork()) == 0) {
@@ -232,7 +223,7 @@ int main(int argc, char **argv)
 			break;
 		
 		case IPC_EV_TYPE_CLI:
-			mail = (tOFP_MBX*)mbuf.mtext;
+			mail = (tOFP_MBX *)mbuf.mtext;
 			cli_2_ofp = (cli_2_ofp_t *)(mail->refp);
 			
 			switch(cli_2_ofp->opcode)
