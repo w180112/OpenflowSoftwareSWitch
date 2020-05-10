@@ -309,7 +309,7 @@ STATUS ofp_cmd2mailbox(U8 *mu, int mulen)
 	}
 	
 	if (mulen > ETH_MTU) {
-	 	printf("Incoming frame length(%d) is too lmaile!\n",mulen);
+	 	printf("Incoming frame length(%d) is too large at ofp_cmd.c!\n",mulen);
 		return ERROR;
 	}
 

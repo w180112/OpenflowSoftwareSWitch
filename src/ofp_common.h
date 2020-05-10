@@ -46,6 +46,61 @@ struct ofp_port {
 };
 OFP_ASSERT(sizeof(struct ofp_port) == 64);
 
+enum ofp_port_config { 
+    OFPPC_PORT_DOWN = 1 << 0, /* Port is administratively down. */
+    OFPPC_NO_RECV = 1 << 2, /* Drop all packets received by port. */
+    OFPPC_NO_FWD = 1 << 5, /* Drop packets forwarded to port. */
+    OFPPC_NO_PACKET_IN = 1 << 6 /* Do not send packet-in msgs for port. */
+};
+
+enum ofp_port_state {
+    OFPPS_LINK_DOWN = 1 << 0, /* No physical link present. */
+    OFPPS_BLOCKED = 1 << 1, /* Port is blocked */
+    OFPPS_LIVE = 1 << 2, /* Live for Fast Failover Group. */
+};
+
+enum ofp_port_no {
+    /* Maximum number of physical and logical switch ports. */ 
+    OFPP_MAX = 0xffffff00,
+    /* Reserved OpenFlow Port (fake output "ports"). */
+    OFPP_IN_PORT = 0xfffffff8, /* Send the packet out the input port. This 
+                                reserved port must be explicitly used
+                                in order to send back out of the input port. */
+    OFPP_TABLE = 0xfffffff9, /* Submit the packet to the first flow table 
+                                NB: This destination port can only be 
+                                used in packet-out messages. */
+    OFPP_NORMAL = 0xfffffffa, /* Process with normal L2/L3 switching. */
+    OFPP_FLOOD = 0xfffffffb, /* All physical ports in VLAN, except input
+                                port and those blocked or link down. */
+    OFPP_ALL = 0xfffffffc, /* All physical ports except input port. */
+    OFPP_CONTROLLER = 0xfffffffd, /* Send to controller. */
+    OFPP_LOCAL = 0xfffffffe, /* Local openflow "port". */
+    OFPP_ANY = 0xffffffff, /* Wildcard port used only for flow mod
+                            (delete) and flow stats requests. Selects 
+                            all flows regardless of output port 
+                            (including flows with no output port). */
+};
+
+/* Features of ports available in a datapath. */ 
+enum ofp_port_features {
+    OFPPF_10MB_HD = 1 << 0, /* 10 Mb half-duplex rate support. */
+    OFPPF_10MB_FD = 1 << 1, /* 10 Mb full-duplex rate support. */
+    OFPPF_100MB_HD = 1 << 2, /* 100 Mb half-duplex rate support. */
+    OFPPF_100MB_FD = 1 << 3, /* 100 Mb full-duplex rate support. */
+    OFPPF_1GB_HD = 1 << 4, /* 1 Gb half-duplex rate support. */
+    OFPPF_1GB_FD = 1 << 5, /* 1 Gb full-duplex rate support. */
+    OFPPF_10GB_FD = 1 << 6, /* 10 Gb full-duplex rate support. */
+    OFPPF_40GB_FD = 1 << 7, /* 40 Gb full-duplex rate support. */
+    OFPPF_100GB_FD = 1 << 8, /* 100 Gb full-duplex rate support. */
+    OFPPF_1TB_FD = 1 << 9, /* 1 Tb full-duplex rate support. */
+    OFPPF_OTHER = 1 << 10, /* Other rate, not in the list. */
+    OFPPF_COPPER = 1 << 11, /* Copper medium. */
+    OFPPF_FIBER = 1 << 12, /* Fiber medium. */
+    OFPPF_AUTONEG = 1 << 13, /* Auto-negotiation. */
+    OFPPF_PAUSE = 1 << 14, /*Pause.*/
+    OFPPF_PAUSE_ASYM = 1 << 15 /* Asymmetric pause. */
+};
+
 enum ofp_multipart_types {
     OFPMP_DESC = 0,
     OFPMP_FLOW = 1,

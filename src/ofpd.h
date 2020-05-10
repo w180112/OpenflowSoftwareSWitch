@@ -74,7 +74,7 @@ typedef struct {
 	ofp_packet_in_t 	ofp_packet_in;
 	flowmod_info_t 		flowmod_info;
 	packet_out_info_t 	packet_out_info;
-	U8 					ofpbuf[ETH_MTU];
+	U8 					ofpbuf[MSG_LEN];
 	uint16_t 			ofpbuf_len;
 } tOFP_PORT;
 

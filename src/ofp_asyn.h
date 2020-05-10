@@ -21,4 +21,19 @@ typedef struct ofp_packet_in {
 }ofp_packet_in_t;
 OFP_ASSERT(sizeof(struct ofp_packet_in) == 32);
 
+/* A physical port has changed in the datapath */ 
+typedef struct ofp_port_status {
+    struct ofp_header header; 
+    uint8_t reason; /* One of OFPPR_*. */
+    uint8_t pad[7]; /* Align to 64-bits. */
+    struct ofp_port desc;
+}ofp_port_status_t;
+OFP_ASSERT(sizeof(struct ofp_port_status) == 80);
+
+enum ofp_port_reason {
+    OFPPR_ADD = 0, /* The port was added. */
+    OFPPR_DELETE = 1, /* The port was removed. */
+    OFPPR_MODIFY = 2, /* Some attribute of the port has changed. */
+};
+
 #endif

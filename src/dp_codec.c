@@ -80,6 +80,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *bu
 	else {
 		return ERROR;
 	}
+	flow[flow_index].pkt_count++;
 	if ((ret = apply_flow(mu, mulen, flow_index, dp_io_fds_head)) == ERROR)
 		return ERROR;
 	else if (ret == FALSE) {

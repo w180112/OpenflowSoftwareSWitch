@@ -36,6 +36,7 @@ typedef struct flow {
     uint32_t out_port; 
     uint32_t out_group;
 	uint8_t type;
+	uint64_t pkt_count;
 	BOOL	is_exist;
 	void *next_match;
 	void *next_action;

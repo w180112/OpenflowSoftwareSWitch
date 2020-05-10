@@ -16,6 +16,12 @@ struct _OFP_TLV {
     U16		len; //=subt+value
 	void	*vp; //value pointer
 };
+
+typedef struct port_status {
+    ofp_port_status_t ofp_port_status;
+    struct port_status *next;
+}port_status_t;
+
 typedef struct _OFP_TLV	tOFP_TLV; 
 typedef U16  *(*DEC_FUNCPTR)(U8*, tOFP_TLV*);
 typedef U16  *(*ENC_FUNCPTR)(tOFP_TLV*, U8*);

@@ -33,6 +33,7 @@ static STATUS   A_query_tmr_expire(tOFP_PORT *port_ccb);
 static STATUS   A_send_packet_in(tOFP_PORT *port_ccb);
 static STATUS 	A_send_pktout_to_dp(tOFP_PORT *port_ccb);
 static STATUS 	A_send_flowmod_to_dp(tOFP_PORT *port_ccb);
+static STATUS 	A_send_port_status(tOFP_PORT *port_ccb);
 
 STATUS ofp_send2dp(U8 *mu, int mulen);
 
@@ -59,6 +60,8 @@ tOFP_STATE_TBL  ofp_fsm_tbl[] = {
 { S_ESTABLISHED,    E_FLOW_MOD,            	S_ESTABLISHED,  { A_send_flowmod_to_dp, 0 }},
 
 { S_ESTABLISHED,    E_PACKET_OUT,           S_ESTABLISHED,  { A_send_pktout_to_dp, 0 }},
+
+{ S_ESTABLISHED,    E_PORT_STATUS,          S_ESTABLISHED,  { A_send_port_status, 0 }},
 
 { S_INVALID, 0 }
 };
@@ -373,6 +376,18 @@ STATUS A_send_flowmod_to_dp(tOFP_PORT *port_ccb)
 }
 
 /*********************************************************************
+ * A_send_port_status: 
+ *
+ *********************************************************************/
+STATUS A_send_port_status(tOFP_PORT *port_ccb)	
+{
+	port_ccb->sockfd = ofp_io_fds[0];
+	drv_xmit(port_ccb->ofpbuf, port_ccb->ofpbuf_len, port_ccb->sockfd);
+
+	return TRUE;
+}
+
+/*********************************************************************
  * A_send_to_host: 
  *
  *********************************************************************/
@@ -402,7 +417,7 @@ STATUS ofp_send2dp(U8 *mu, int mulen)
 	}
 	
 	if (mulen > MSG_LEN) {
-	 	printf("Incoming frame length(%d) is too lmaile!\n",mulen);
+	 	printf("Incoming frame length(%d) is too large at ofp_fsm.c!\n",mulen);
 		return ERROR;
 	}
 

@@ -14,7 +14,7 @@ extern flow_t flow[256];
 extern void dp_drv_xmit(U8 *mu, U16 mulen, uint16_t port_id, dp_io_fds_t *dp_io_fds_head);
 
 STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head);
-STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type);
+STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t *type);
 STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
 
@@ -23,6 +23,7 @@ STATUS find_flow(pkt_info_t pkt_info, uint32_t *flow_index)
 	uint16_t 	max_pri = 0;
 	int 		ret;
 	BOOL 		is_found = FALSE;
+	uint8_t 	match_type;
 	//uint8_t index = find_index(pkt_info.dst_mac,6);
 	for(int i=0; i<256; i++) {
 		//max_pri = (max_pri > flow[i].priority) ? max_pri : flow[i].priority;
@@ -30,9 +31,10 @@ STATUS find_flow(pkt_info_t pkt_info, uint32_t *flow_index)
 		if (flow[i].is_exist == FALSE)
 			continue;
 		void *cur;
-		for(cur=(void *)&flow[i];;) {
+		match_type = flow[i].type;
+		for(cur=flow[i].next_match;;) {
 			//printf("<%d\n", __LINE__);
-			if ((ret = flow_type_cmp(pkt_info, (void **)&(((flow_t *)cur)->next_match), ((flow_t *)cur)->type)) == FALSE)
+			if ((ret = flow_type_cmp(pkt_info, &cur, &match_type)) == FALSE)
 				break;
 			else if (ret == END) {
 				if (max_pri <= flow[i].priority) {
@@ -131,16 +133,17 @@ uint8_t find_index(U8 *info, int len)
 	return index % 256;
 }
 
-STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
+STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t *type)
 {
 	if (*cur == NULL)
 		return END;
-	switch(type) {
+	switch(*type) {
 		case PORT:
 			if (BYTES_CMP((U8 *)&(pkt_info.port_id), (U8 *)&(((port_t *)(*cur))->port_id), 2) == FALSE)
 				return FALSE;
 			/*if (((port_t *)(*cur))->next == NULL)
 				return END;*/
+			*type = ((port_t *)(*cur))->type;
 			*cur = (void *)(((port_t *)(*cur))->next);
 			break;
 		case DST_MAC:
@@ -148,6 +151,7 @@ STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
 				return FALSE;
 			/*if (((dst_mac_t *)(*cur))->next == NULL)
 				return END;*/
+			*type = ((dst_mac_t *)(*cur))->type;
 			*cur = (void *)(((dst_mac_t *)(*cur))->next);
 			break;
 		case SRC_MAC:
@@ -155,6 +159,7 @@ STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
 				return FALSE;
 			/*if (((src_mac_t *)(*cur))->next == NULL)
 				return END;*/
+			*type = ((src_mac_t *)(*cur))->type;
 			*cur = (void *)(((src_mac_t *)(*cur))->next);
 			break;
 		case ETHER_TYPE:
@@ -162,6 +167,7 @@ STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
 				return FALSE;
 			/*if (((ether_type_t *)(*cur))->next == NULL)
 				return END;*/
+			*type = ((ether_type_t *)(*cur))->type;
 			*cur = (void *)(((ether_type_t *)(*cur))->next);
 			break;
 		case DST_IP:
@@ -169,13 +175,15 @@ STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
 				return FALSE;
 			/*if (((dst_ip_t *)(*cur))->next == NULL)
 				return END;*/
+			*type = ((dst_ip_t *)(*cur))->type;
 			*cur = (void *)(((dst_ip_t *)(*cur))->next);
 			break;
 		case SRC_IP:
 			if (BYTES_CMP((U8 *)&(pkt_info.ip_src),(U8 *)&(((src_ip_t *)(*cur))->src_ip),((src_ip_t *)(*cur))->mask) == FALSE)
 				return FALSE;
-			if (((src_ip_t *)(*cur))->next == NULL)
-				return END;
+			/*if (((src_ip_t *)(*cur))->next == NULL)
+				return END;*/
+			*type = ((src_ip_t *)(*cur))->type;
 			*cur = (void *)(((src_ip_t *)(*cur))->next);
 			break;
 		case IP_PROTO:
@@ -183,6 +191,7 @@ STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
 				return FALSE;
 			/*if (((ip_proto_t *)(*cur))->next == NULL)
 				return END;*/
+			*type = ((ip_proto_t *)(*cur))->type;
 			*cur = (void *)(((ip_proto_t *)(*cur))->next);
 			break;
 		case DST_PORT:
@@ -190,6 +199,7 @@ STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
 				return FALSE;
 			/*if (((dst_port_t *)(*cur))->next == NULL)
 				return END;*/
+			*type = ((dst_port_t *)(*cur))->type;
 			*cur = (void *)(((dst_port_t *)(*cur))->next);
 			break;
 		case SRC_PORT:
@@ -197,6 +207,7 @@ STATUS flow_type_cmp(pkt_info_t pkt_info, void **cur, uint8_t type)
 				return FALSE;
 			/*if (((src_port_t *)(*cur))->next == NULL)
 				return END;*/
+			*type = ((src_port_t *)(*cur))->type;
 			*cur = (void *)(((src_port_t *)(*cur))->next);
 			break;
 		default:
@@ -224,132 +235,145 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 					puts("reach max number match field in flow table");
 					return FALSE;
 				}
+				void *new_node;
 				//printf("match type = %u\n", flowmod_info.match_info[j].type);
 				switch (flowmod_info.match_info[j].type) {
 				case PORT:
-					cur = (void *)malloc(sizeof(port_t));
+					puts("create in_port match field in flow table");
+					new_node = (void *)malloc(sizeof(port_t));
 					if (head == NULL)
-						head = cur;
-					((port_t *)cur)->port_id = flowmod_info.match_info[j].port_id;
+						head = new_node;
+					((port_t *)new_node)->port_id = flowmod_info.match_info[j].port_id;
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((port_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((port_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((port_t *)cur)->type = 0; // 0 means there's no next match field type
+						((port_t *)new_node)->type = 0; // 0 means there's no next match field type
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((port_t *)cur)->next = (port_t *)new_node;
 					cur = (void *)((port_t *)cur)->next;
 					break;
 				case DST_MAC:
-					cur = (void *)malloc(sizeof(dst_mac_t));
+					puts("create dst_mac match field in flow table");
+					new_node = (void *)malloc(sizeof(dst_mac_t));
 					if (head == NULL)
-						head = cur;
-					memcpy(((dst_mac_t *)cur)->dst_mac,flowmod_info.match_info[j].dst_mac,ETH_ALEN);
+						head = new_node;
+					memcpy(((dst_mac_t *)new_node)->dst_mac,flowmod_info.match_info[j].dst_mac,ETH_ALEN);
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((dst_mac_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((dst_mac_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((dst_mac_t *)cur)->type = 0;
+						((dst_mac_t *)new_node)->type = 0;
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((dst_mac_t *)cur)->next = (dst_mac_t *)new_node;
 					cur = (void *)((dst_mac_t *)cur)->next;
 					break;
 				case SRC_MAC:
-					cur = (void *)malloc(sizeof(src_mac_t));
+					puts("create src_mac match field in flow table");
+					new_node = (void *)malloc(sizeof(src_mac_t));
 					if (head == NULL)
-						head = cur;
-					memcpy(((src_mac_t *)cur)->src_mac,flowmod_info.match_info[j].src_mac,ETH_ALEN);
+						head = new_node;
+					memcpy(((src_mac_t *)new_node)->src_mac,flowmod_info.match_info[j].src_mac,ETH_ALEN);
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((src_mac_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((src_mac_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((src_mac_t *)cur)->type = 0;
+						((src_mac_t *)new_node)->type = 0;
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((src_mac_t *)cur)->next = (src_mac_t *)new_node;
 					cur = (void *)((src_mac_t *)cur)->next;
 					break;
 				case ETHER_TYPE:
-					cur = (void *)malloc(sizeof(ether_type_t));
+					new_node = (void *)malloc(sizeof(ether_type_t));
 					if (head == NULL)
-						head = cur;
+						head = new_node;
 					((ether_type_t *)cur)->ether_type = flowmod_info.match_info[j].ether_type;
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((ether_type_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((ether_type_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((ether_type_t *)cur)->type = 0;
+						((ether_type_t *)new_node)->type = 0;
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((ether_type_t *)cur)->next = (ether_type_t *)new_node;
 					cur = (void *)((ether_type_t *)cur)->next;
 					break;
 				case DST_IP:
-					cur = (void *)malloc(sizeof(dst_ip_t));
+					new_node = (void *)malloc(sizeof(dst_ip_t));
 					if (head == NULL)
-						head = cur;
-					((dst_ip_t *)cur)->dst_ip = flowmod_info.match_info[j].ip_dst;
+						head = new_node;
+					((dst_ip_t *)new_node)->dst_ip = flowmod_info.match_info[j].ip_dst;
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((dst_ip_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((dst_ip_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((dst_ip_t *)cur)->type = 0;
+						((dst_ip_t *)new_node)->type = 0;
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((dst_ip_t *)cur)->next = (dst_ip_t *)new_node;
 					cur = (void *)((dst_ip_t *)cur)->next;
 					break;
 				case SRC_IP:
-					cur = (void *)malloc(sizeof(src_ip_t));
+					new_node = (void *)malloc(sizeof(src_ip_t));
 					if (head == NULL)
-						head = cur;
-					((src_ip_t *)cur)->src_ip = flowmod_info.match_info[j].ip_dst;
+						head = new_node;
+					((src_ip_t *)new_node)->src_ip = flowmod_info.match_info[j].ip_dst;
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((src_ip_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((src_ip_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((src_ip_t *)cur)->type = 0;
+						((src_ip_t *)new_node)->type = 0;
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((src_ip_t *)cur)->next = (src_ip_t *)new_node;
 					cur = (void *)((src_ip_t *)cur)->next;
 					break;
 				case IP_PROTO:
-					cur = (void *)malloc(sizeof(ip_proto_t));
+					new_node = (void *)malloc(sizeof(ip_proto_t));
 					if (head == NULL)
-						head = cur;
-					((ip_proto_t *)cur)->ip_proto = flowmod_info.match_info[j].ip_proto;
+						head = new_node;
+					((ip_proto_t *)new_node)->ip_proto = flowmod_info.match_info[j].ip_proto;
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((ip_proto_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((ip_proto_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((ip_proto_t *)cur)->type = 0;
+						((ip_proto_t *)new_node)->type = 0;
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((ip_proto_t *)cur)->next = (ip_proto_t *)new_node;
 					cur = (void *)((ip_proto_t *)cur)->next;
 					break;
 				case DST_PORT:
-					cur = (void *)malloc(sizeof(dst_port_t));
+					new_node = (void *)malloc(sizeof(dst_port_t));
 					if (head == NULL)
-						head = cur;
-					((dst_port_t *)cur)->dst_port = flowmod_info.match_info[j].dst_port;
+						head = new_node;
+					((dst_port_t *)new_node)->dst_port = flowmod_info.match_info[j].dst_port;
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((dst_port_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((dst_port_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((dst_port_t *)cur)->type = 0;
+						((dst_port_t *)new_node)->type = 0;
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((dst_port_t *)cur)->next = (dst_port_t *)new_node;
 					cur = (void *)((dst_port_t *)cur)->next;
 					break;
 				case SRC_PORT:
-					cur = (void *)malloc(sizeof(src_port_t));
+					new_node = (void *)malloc(sizeof(src_port_t));
 					if (head == NULL)
-						head = cur;
-					((src_port_t *)cur)->src_port = flowmod_info.match_info[j].src_port;
+						head = new_node;
+					((src_port_t *)new_node)->src_port = flowmod_info.match_info[j].src_port;
 					if (flowmod_info.match_info[j].is_tail == FALSE)
-						((src_port_t *)cur)->type = flowmod_info.match_info[j+1].type;
+						((src_port_t *)new_node)->type = flowmod_info.match_info[j+1].type;
 					else {
-						((src_port_t *)cur)->type = 0;
+						((src_port_t *)new_node)->type = 0;
 						flow[i].next_match = head;
 						return TRUE;
 					}
+					((src_port_t *)cur)->next = (src_port_t *)new_node;
 					cur = (void *)((src_port_t *)cur)->next;
 					break;
 				default:
@@ -375,133 +399,143 @@ STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index)
 				return FALSE;
 			}
 			printf("aciton type = %u\n", flowmod_info.action_info[j].type);
+			void *new_node;
 			switch (flowmod_info.action_info[j].type) {
 			case PORT:
-				cur = (void *)malloc(sizeof(port_t));
+				new_node = (void *)malloc(sizeof(port_t));
 				if (head == NULL)
-					head = cur;
-				((port_t *)cur)->port_id = flowmod_info.action_info[j].port_id;
-				((port_t *)cur)->max_len = flowmod_info.action_info[j].max_len;
+					head = new_node;
+				((port_t *)new_node)->port_id = flowmod_info.action_info[j].port_id;
+				((port_t *)new_node)->max_len = flowmod_info.action_info[j].max_len;
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((port_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((port_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((port_t *)cur)->type = 0; // 0 means there's no next match field type
+					((port_t *)new_node)->type = 0; // 0 means there's no next match field type
 					flow[flow_index].next_action = head;
 					//printf("<%d %x\n", __LINE__, flow[flow_index].next_action);
 					return TRUE;
 				}
+				((port_t *)cur)->next = (port_t *)new_node;
 				cur = (void *)((port_t *)cur)->next;
 				break;
 			case DST_MAC:
-				cur = (void *)malloc(sizeof(dst_mac_t));
+				new_node = (void *)malloc(sizeof(dst_mac_t));
 				if (head == NULL)
-					head = cur;
-				memcpy(((dst_mac_t *)cur)->dst_mac,flowmod_info.action_info[j].dst_mac,ETH_ALEN);
+					head = new_node;
+				memcpy(((dst_mac_t *)new_node)->dst_mac,flowmod_info.action_info[j].dst_mac,ETH_ALEN);
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((dst_mac_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((dst_mac_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((dst_mac_t *)cur)->type = 0;
+					((dst_mac_t *)new_node)->type = 0;
 					flow[flow_index].next_action = head;
 					return TRUE;
 				}
+				((dst_mac_t *)cur)->next = (dst_mac_t *)new_node;
 				cur = (void *)((dst_mac_t *)cur)->next;
 				break;
 			case SRC_MAC:
-				cur = (void *)malloc(sizeof(src_mac_t));
+				new_node = (void *)malloc(sizeof(src_mac_t));
 				if (head == NULL)
-					head = cur;
-				memcpy(((src_mac_t *)cur)->src_mac,flowmod_info.action_info[j].src_mac,ETH_ALEN);
+					head = new_node;
+				memcpy(((src_mac_t *)new_node)->src_mac,flowmod_info.action_info[j].src_mac,ETH_ALEN);
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((src_mac_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((src_mac_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((src_mac_t *)cur)->type = 0;
+					((src_mac_t *)new_node)->type = 0;
 					flow[flow_index].next_action = head;
 					return TRUE;
 				}
+				((src_mac_t *)cur)->next = (src_mac_t *)new_node;
 				cur = (void *)((src_mac_t *)cur)->next;
 				break;
 			case ETHER_TYPE:
-				cur = (void *)malloc(sizeof(ether_type_t));
+				new_node = (void *)malloc(sizeof(ether_type_t));
 				if (head == NULL)
-					head = cur;
-				((ether_type_t *)cur)->ether_type = flowmod_info.action_info[j].ether_type;
+					head = new_node;
+				((ether_type_t *)new_node)->ether_type = flowmod_info.action_info[j].ether_type;
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((ether_type_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((ether_type_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((ether_type_t *)cur)->type = 0;
+					((ether_type_t *)new_node)->type = 0;
 					flow[flow_index].next_action = head;
 					return TRUE;
 				}
+				((ether_type_t *)cur)->next = (ether_type_t *)new_node;
 				cur = (void *)((ether_type_t *)cur)->next;
 				break;
 			case DST_IP:
-				cur = (void *)malloc(sizeof(dst_ip_t));
+				new_node = (void *)malloc(sizeof(dst_ip_t));
 				if (head == NULL)
-					head = cur;
-				((dst_ip_t *)cur)->dst_ip = flowmod_info.action_info[j].ip_dst;
+					head = new_node;
+				((dst_ip_t *)new_node)->dst_ip = flowmod_info.action_info[j].ip_dst;
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((dst_ip_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((dst_ip_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((dst_ip_t *)cur)->type = 0;
+					((dst_ip_t *)new_node)->type = 0;
 					flow[flow_index].next_action = head;
 					return TRUE;
 				}
+				((dst_ip_t *)cur)->next = (dst_ip_t *)new_node;
 				cur = (void *)((dst_ip_t *)cur)->next;
 				break;
 			case SRC_IP:
-				cur = (void *)malloc(sizeof(src_ip_t));
+				new_node = (void *)malloc(sizeof(src_ip_t));
 				if (head == NULL)
-					head = cur;
-				((src_ip_t *)cur)->src_ip = flowmod_info.action_info[j].ip_dst;
+					head = new_node;
+				((src_ip_t *)new_node)->src_ip = flowmod_info.action_info[j].ip_dst;
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((src_ip_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((src_ip_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((src_ip_t *)cur)->type = 0;
+					((src_ip_t *)new_node)->type = 0;
 					flow[flow_index].next_action = head;
 					return TRUE;
 				}
+				((src_ip_t *)cur)->next = (src_ip_t *)new_node;
 				cur = (void *)((src_ip_t *)cur)->next;
 				break;
 			case IP_PROTO:
-				cur = (void *)malloc(sizeof(ip_proto_t));
+				new_node = (void *)malloc(sizeof(ip_proto_t));
 				if (head == NULL)
-					head = cur;
-				((ip_proto_t *)cur)->ip_proto = flowmod_info.action_info[j].ip_proto;
+					head = new_node;
+				((ip_proto_t *)new_node)->ip_proto = flowmod_info.action_info[j].ip_proto;
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((ip_proto_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((ip_proto_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((ip_proto_t *)cur)->type = 0;
+					((ip_proto_t *)new_node)->type = 0;
 					flow[flow_index].next_action = head;
 					return TRUE;
 				}
+				((ip_proto_t *)cur)->next = (ip_proto_t *)new_node;
 				cur = (void *)((ip_proto_t *)cur)->next;
 				break;
 			case DST_PORT:
-				cur = (void *)malloc(sizeof(dst_port_t));
+				new_node = (void *)malloc(sizeof(dst_port_t));
 				if (head == NULL)
-					head = cur;
-				((dst_port_t *)cur)->dst_port = flowmod_info.action_info[j].dst_port;
+					head = new_node;
+				((dst_port_t *)new_node)->dst_port = flowmod_info.action_info[j].dst_port;
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((dst_port_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((dst_port_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((dst_port_t *)cur)->type = 0;
+					((dst_port_t *)new_node)->type = 0;
 					flow[flow_index].next_action = head;
 					return TRUE;
 				}
+				((dst_port_t *)cur)->next = (dst_port_t *)new_node;
 				cur = (void *)((dst_port_t *)cur)->next;
 				break;
 			case SRC_PORT:
-				cur = (void *)malloc(sizeof(src_port_t));
+				new_node = (void *)malloc(sizeof(src_port_t));
 				if (head == NULL)
-					head = cur;
-				((src_port_t *)cur)->src_port = flowmod_info.action_info[j].src_port;
+					head = new_node;
+				((src_port_t *)new_node)->src_port = flowmod_info.action_info[j].src_port;
 				if (flowmod_info.action_info[j].is_tail == FALSE)
-					((src_port_t *)cur)->type = flowmod_info.action_info[j+1].type;
+					((src_port_t *)new_node)->type = flowmod_info.action_info[j+1].type;
 				else {
-					((src_port_t *)cur)->type = 0;
+					((src_port_t *)new_node)->type = 0;
 					flow[flow_index].next_action = head;
 					return TRUE;
 				}
+				((src_port_t *)cur)->next = (src_port_t *)new_node;
 				cur = (void *)((src_port_t *)cur)->next;
 				break;
 			default:
@@ -512,4 +546,65 @@ STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index)
 		}
 	}
 	return FALSE;
+}
+
+STATUS print_field(void **cur, uint8_t *type)
+{
+	if (*cur == NULL)
+		return END;
+	switch(*type) {
+		case PORT:
+			if (((port_t *)(*cur))->port_id == OFPP_CONTROLLER)
+				printf("port = %s", "OFPP_CONTROLLER");
+			else if (((port_t *)(*cur))->port_id == OFPP_FLOOD)
+				printf("port = %s", "OFPP_FLOOD");
+			else
+				printf("port = %u", ((port_t *)(*cur))->port_id);
+			*type = ((port_t *)(*cur))->type;
+			*cur = (void *)(((port_t *)(*cur))->next);
+			break;
+		case DST_MAC:
+			printf("dst_mac = %x:%x:%x:%x:%x:%x", ((dst_mac_t *)(*cur))->dst_mac[0], ((dst_mac_t *)(*cur))->dst_mac[1], ((dst_mac_t *)(*cur))->dst_mac[2], ((dst_mac_t *)(*cur))->dst_mac[3], ((dst_mac_t *)(*cur))->dst_mac[4], ((dst_mac_t *)(*cur))->dst_mac[5]);
+			*type = ((dst_mac_t *)(*cur))->type;
+			*cur = (void *)(((dst_mac_t *)(*cur))->next);
+			break;
+		case SRC_MAC:
+			printf("src_mac = %x:%x:%x:%x:%x:%x", ((src_mac_t *)(*cur))->src_mac[0], ((src_mac_t *)(*cur))->src_mac[1], ((src_mac_t *)(*cur))->src_mac[2], ((src_mac_t *)(*cur))->src_mac[3], ((src_mac_t *)(*cur))->src_mac[4], ((src_mac_t *)(*cur))->src_mac[5]);
+			*type = ((src_mac_t *)(*cur))->type;
+			*cur = (void *)(((src_mac_t *)(*cur))->next);
+			break;
+		case ETHER_TYPE:
+			printf("ether_type = %u", ((ether_type_t *)(*cur))->ether_type);
+			*type = ((ether_type_t *)(*cur))->type;
+			*cur = (void *)(((ether_type_t *)(*cur))->next);
+			break;
+		case DST_IP:
+			printf("dst_ip = %u", ((dst_ip_t *)(*cur))->dst_ip);
+			*type = ((dst_ip_t *)(*cur))->type;
+			*cur = (void *)(((dst_ip_t *)(*cur))->next);
+			break;
+		case SRC_IP:
+			printf("src_ip = %u", ((src_ip_t *)(*cur))->src_ip);
+			*type = ((src_ip_t *)(*cur))->type;
+			*cur = (void *)(((src_ip_t *)(*cur))->next);
+			break;
+		case IP_PROTO:
+			printf("ip_proto = %u", ((ip_proto_t *)(*cur))->ip_proto);
+			*type = ((ip_proto_t *)(*cur))->type;
+			*cur = (void *)(((ip_proto_t *)(*cur))->next);
+			break;
+		case DST_PORT:
+			printf("dst_port = %u", ((dst_port_t *)(*cur))->dst_port);
+			*type = ((dst_port_t *)(*cur))->type;
+			*cur = (void *)(((dst_port_t *)(*cur))->next);
+			break;
+		case SRC_PORT:
+			printf("src_port = %u", ((src_port_t *)(*cur))->src_port);
+			*type = ((src_port_t *)(*cur))->type;
+			*cur = (void *)(((src_port_t *)(*cur))->next);
+			break;
+		default:
+			;
+	}
+	return TRUE;
 }

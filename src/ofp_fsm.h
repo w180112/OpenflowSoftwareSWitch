@@ -42,6 +42,7 @@ typedef enum {
   E_PACKET_OUT,
   E_PACKET_IN,
   E_FLOW_MOD,
+  E_PORT_STATUS,
 } OFP_EVENT_TYPE;
 
 /*======================= external ==========================*/

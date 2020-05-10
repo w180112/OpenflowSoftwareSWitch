@@ -24,6 +24,7 @@ extern STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint3
 extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 extern STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
 extern STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head);
+extern STATUS print_field(void **cur, uint8_t *type);
 
 void dp(tIPC_ID dpQid);
 STATUS enq_pkt_in(tOFP_MBX *mail, q_t **head, int id);
@@ -79,7 +80,7 @@ void dp(tIPC_ID dpQid)
 				msg.id = id;
 				memcpy(msg.buffer, (U8 *)((tDP_MSG *)(mail->refp)), (mail->len));
 				dp_send2ofp((U8 *)&msg, (mail->len) + sizeof(int));
-				puts("set to ofp");
+				//puts("send to ofp");
 			}
 			else {
 				//puts("send to dp port");
@@ -88,6 +89,7 @@ void dp(tIPC_ID dpQid)
 		case IPC_EV_TYPE_OFP:
 			mail = (tOFP_MBX*)mbuf.mtext;
 			if (*(mail->refp) == FLOWMOD) {
+				printf("<%d\n", __LINE__);
 				/* TODO: if buffer_id exist, needs to make the buffered packet match the flow refer to this buffer_id */
 				flowmod_info_t flowmod_info;
 				uint32_t flow_index;
@@ -102,7 +104,8 @@ void dp(tIPC_ID dpQid)
 				if (flowmod_action_process(flowmod_info, flow_index) == FALSE) {
 					puts("flow table is full by action field");
 				}
-				//printf("<%d\n", __LINE__);
+				printf("<%d %d\n", __LINE__, flow[flow_index].is_exist);
+				
 				//printf("flowmod_info action len = %u\n", flowmod_info.action_info[0].max_len);
 				//free(flowmod_info.action_info);
 			}
@@ -129,10 +132,29 @@ void dp(tIPC_ID dpQid)
     					}
 						break;
 					case SHOW_FLOW:
+						//printf("<%d\n", __LINE__);
 						for(int i=0; i<256; i++) {
+							//printf("<%d %d\n", __LINE__, flow[i].is_exist);
 							if (flow[i].is_exist == FALSE)
 								continue;
+							//printf("<%d\n", __LINE__);
 							//TODO: dump the flow table
+							printf("flow %d: cookie=%lx, priority=%u, pkt count=%lu, match field: ", i, flow[i].cookie, flow[i].priority, flow[i].pkt_count);
+							void *cur;
+							uint8_t type;
+							type = flow[i].type;
+							for(cur=flow[i].next_match;;) {
+								if (print_field(&cur, &type) == END)
+									break;
+								printf(", ");
+							}
+							printf("action field: ");
+							for(cur=flow[i].next_action;;) {
+								if (print_field(&cur, &type) == END)
+									break;
+								printf(", ");
+							}
+							printf("\n");
 						}
 						break;
 					default:
@@ -165,7 +187,7 @@ STATUS dp_send2ofp(U8 *mu, int mulen)
 	}
 	
 	if (mulen > MSG_LEN) {
-	 	printf("Incoming frame length(%d) is too lmaile!\n",mulen);
+	 	printf("Incoming frame length(%d) is too large at dp.c!\n",mulen);
 		return ERROR;
 	}
 

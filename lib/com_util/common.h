@@ -47,6 +47,8 @@ extern "C" {
 
 #include	    <linux/if.h>   /* for include libbridge, so comment net/if.h and add define IF_NAMESIZE below */
 //#include	    <net/if.h>     /* get local ip */
+#include 		<linux/ethtool.h>
+#include 		<linux/sockios.h>
 
 #include	    <linux/if_packet.h>
 #include 		</usr/include/linux/filter.h>
@@ -59,6 +61,7 @@ extern "C" {
 #include        <memory.h>
 //#include		"/uClibc-0.9.28/include/pthread.h"
 #include		<pthread.h>
+#include 		<errno.h>
 
 typedef  		unsigned char   	BOOL;
 typedef  		short				STATUS;

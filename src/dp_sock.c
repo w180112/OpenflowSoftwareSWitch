@@ -256,6 +256,12 @@ void sockd_dp(dp_io_fds_t *dp_io_fds_head)
 void dp_drv_xmit(U8 *mu, U16 mulen, uint16_t port_id, dp_io_fds_t *dp_io_fds_head)
 {
 	dp_io_fds_t *cur_io_fd;
+	if (port_id == OFPP_FLOOD) {
+		for(cur_io_fd=dp_io_fds_head; cur_io_fd!=NULL; cur_io_fd=cur_io_fd->next) {
+			sendto(cur_io_fd->fd, mu, mulen, 0, (struct sockaddr*)&sll, sizeof(sll));
+		}
+	}
+
 	for(cur_io_fd=dp_io_fds_head; cur_io_fd!=NULL; cur_io_fd=cur_io_fd->next) {
 		if (cur_io_fd->port_no == port_id)
 			sendto(cur_io_fd->fd, mu, mulen, 0, (struct sockaddr*)&sll, sizeof(sll));
@@ -285,7 +291,7 @@ STATUS dp_send2mailbox(U8 *mu, int mulen)
 	}
 	
 	if (mulen > MSG_LEN) {
-	 	printf("Incoming frame length(%d) is too lmaile!\n",mulen);
+	 	printf("Incoming frame length(%d) is too large at dp_sock.c!\n",mulen);
 		return ERROR;
 	}
 

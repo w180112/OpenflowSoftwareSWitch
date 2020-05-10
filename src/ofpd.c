@@ -34,6 +34,7 @@ extern int 			DP_SOCK_INIT(char *ifname, dp_io_fds_t **dp_io_fds_head);
 extern void 		sockd_dp(dp_io_fds_t *dp_io_fds_head);
 extern void 		dp(tIPC_ID dpQid);
 extern void 		OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
+extern STATUS 		OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 
 pid_t ofp_cp_pid, ofp_dp_pid, dp_pid = 0, ofp_cmd_pid, tmr_pid;
 
@@ -225,10 +226,11 @@ int main(int argc, char **argv)
 		case IPC_EV_TYPE_CLI:
 			mail = (tOFP_MBX *)mbuf.mtext;
 			cli_2_ofp = (cli_2_ofp_t *)(mail->refp);
-			
 			switch(cli_2_ofp->opcode)
 			{
 				case ADD_IF:
+					OFP_encode_port_status(mail, &ofp_ports[0]);
+					OFP_FSM(&ofp_ports[0], E_PORT_STATUS);
 				case SHOW_FLOW:
 					memcpy(&cli_2_dp.cli_2_ofp, cli_2_ofp, sizeof(cli_2_ofp_t));
 					cli_2_dp.msg_type = CLI;
@@ -242,7 +244,7 @@ int main(int argc, char **argv)
 					}
 	
 					if (mulen > MSG_LEN) {
-	 					printf("Incoming frame length(%d) is too lmaile!\n",mulen);
+	 					printf("Incoming frame length(%d) is too large at ofpd.c!\n",mulen);
 						return ERROR;
 					}
 
@@ -251,8 +253,8 @@ int main(int argc, char **argv)
 	
 					//printf("dp_send2mailbox(dp_sock.c %d): mulen=%d\n",__LINE__,mulen);
 					mail_2_msgq.type = IPC_EV_TYPE_OFP;
-					ipc_sw(dpQid, &mail_2_msgq, sizeof(mail_2_msgq), -1);
 					printf("send cli msg to dp\n");
+					ipc_sw(dpQid, &mail_2_msgq, sizeof(mail_2_msgq), -1);
 					break;
 				default:
 					;
