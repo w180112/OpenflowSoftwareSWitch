@@ -8,6 +8,7 @@
 
 #define ETH_MTU					1514
 #define MSG_LEN					4074
+#define TABLE_SIZE 				1024
 
 /*-----------------------------------------
  * msg from dp sock

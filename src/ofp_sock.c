@@ -191,15 +191,17 @@ void ofp_sockd_cp(void)
       			printf("Error! recv(): len <= 0 at CP\n");
 				msg.sockfd = 0;
 				msg.type = DRIV_FAIL;
+				ofp_send2mailbox((U8*)&msg, sizeof(int)+1);
     		}
 			else {
     			msg.sockfd = ofp_io_fds[0];
 				msg.type = DRIV_CP;
+				ofp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+1);
 			}
    			/*printf("=========================================================\n");
-			printf("rxlen=%d\n",rxlen);
-    		PRINT_MESSAGE((char*)msg.buffer, rxlen);*/
-    		ofp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+1);
+			printf("rxlen=%d\n",rxlen);*/
+    		//PRINT_MESSAGE((char*)msg.buffer, rxlen);
+    		
    		//} /* if select */
    	} /* for */
 }
@@ -273,7 +275,7 @@ STATUS ofp_send2mailbox(U8 *mu, int mulen)
    	 	}
 	}
 	
-	if (mulen > ETH_MTU) {
+	if (mulen > sizeof(tOFP_MSG)) {
 	 	printf("Incoming frame length(%d) is too large at ofp_sock.c!\n",mulen);
 		return ERROR;
 	}

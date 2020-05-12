@@ -22,9 +22,9 @@ STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id,
 STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id, uint32_t *flow_index);
 STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id, uint32_t *flow_index);
 
-extern flow_t flow[256];
+extern flow_t flow[TABLE_SIZE];
 
-extern STATUS find_flow(pkt_info_t pkt_info, uint32_t *flow_index);
+extern STATUS find_flow(U8 *mu, U16 mulen, uint32_t port_id, uint32_t *flow_index);
 extern STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head);
 extern void dp_drv_xmit(U8 *mu, U16 mulen, uint16_t port_id, dp_io_fds_t *dp_io_fds_head);
 
@@ -47,7 +47,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *bu
 	U16				mulen;
 	U8				*mu;
 	tDP_MSG 		*msg;
-	struct ethhdr 	*eth_hdr;
+	//struct ethhdr 	*eth_hdr;
 	uint32_t 		flow_index;
 	int 			ret;
 	
@@ -61,6 +61,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *bu
 	mulen = (mail->len) - (sizeof(int) + sizeof(uint16_t));
 	//PRINT_MESSAGE(mu,mulen);
 
+#if 0
 	eth_hdr = (struct ethhdr *)mu;
 	if (eth_hdr->h_proto == htons(ETH_P_IP)) {
 		if (parse_ip(eth_hdr, msg->port_no, &flow_index) == FALSE)
@@ -70,7 +71,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *bu
 		pkt_info_t pkt_info;
 		memset(&pkt_info, 0, sizeof(pkt_info));
 
-		memcpy(&pkt_info, eth_hdr, sizeof(struct ethhdr));
+		memcpy(&pkt_info.eth_hdr, eth_hdr, sizeof(struct ethhdr));
 		pkt_info.port_id = msg->port_no;
 		//TODO: save L2 payload
 
@@ -80,7 +81,12 @@ STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *bu
 	else {
 		return ERROR;
 	}
+#endif 
+	if (find_flow(mu, mulen, msg->port_no, &flow_index) == FALSE)
+		return ERROR;
 	flow[flow_index].pkt_count++;
+	//return FALSE;
+	//printf("<%d at dp_codec.c\n", __LINE__);
 	if ((ret = apply_flow(mu, mulen, flow_index, dp_io_fds_head)) == ERROR)
 		return ERROR;
 	else if (ret == FALSE) {
@@ -91,6 +97,7 @@ STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *bu
 		return TRUE;
 }
 
+#if 0
 /*****************************************************
  * parse_ip
  * purpose: parse ip pkt, call flow rule match
@@ -113,7 +120,7 @@ STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id, uint32_t *flow_index)
 		return FALSE;
 	switch (ip_hdr->protocol) {
 	case IPPROTO_ICMP:
-		memcpy(&pkt_info, eth_hdr, sizeof(struct ethhdr));
+		memcpy(&pkt_info.dst_mac, eth_hdr->h_dest, sizeof(struct ethhdr));
 		pkt_info.ip_proto = ip_hdr->protocol;
 		pkt_info.ip_dst = ip_hdr->daddr;
 		pkt_info.ip_src = ip_hdr->saddr;
@@ -141,7 +148,7 @@ STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id,
 	pkt_info_t 		pkt_info;
 	struct tcphdr 	*tcp_hdr = (struct tcphdr *)(ip_hdr + 1);
 
-	memcpy(&pkt_info, eth_hdr, sizeof(struct ethhdr));
+	memcpy(&pkt_info.eth_hdr, eth_hdr, sizeof(struct ethhdr));
 	pkt_info.ip_proto = ip_hdr->protocol;
 	pkt_info.ip_dst = ip_hdr->daddr;
 	pkt_info.ip_src = ip_hdr->saddr;
@@ -160,7 +167,7 @@ STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id,
 	pkt_info_t 		pkt_info;
 	struct udphdr 	*udp_hdr = (struct udphdr *)(ip_hdr + 1);
 
-	memcpy(&pkt_info, eth_hdr, sizeof(struct ethhdr));
+	memcpy(&pkt_info.eth_hdr, eth_hdr, sizeof(struct ethhdr));
 	pkt_info.ip_proto = ip_hdr->protocol;
 	pkt_info.ip_dst = ip_hdr->daddr;
 	pkt_info.ip_src = ip_hdr->saddr;
@@ -173,7 +180,7 @@ STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id,
 	}
 	return TRUE;
 }
-
+#endif
 STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head)
 {
 	U8 	*mu = packet_out_info.ofpbuf;
@@ -184,7 +191,7 @@ STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds
 			puts("reach max number action field in pkt_out");
 			return FALSE;
 		}
-		printf("aciton type = %u\n", packet_out_info.action_info[i].type);
+		//printf("aciton type = %u\n", packet_out_info.action_info[i].type);
 		switch (packet_out_info.action_info[i].type) {
 		case PORT:
 			dp_drv_xmit(mu, mulen, packet_out_info.action_info[i].port_id, dp_io_fds_head);

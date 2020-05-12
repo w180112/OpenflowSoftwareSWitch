@@ -174,6 +174,7 @@ int main(int argc, char **argv)
 	/*if ((ofp_dp_pid=fork()) == 0) {
    		ofp_sockd_dp();
     }*/
+	printf("pid = %d %d %d %d", ofp_cp_pid, dp_pid, ofp_cmd_pid, tmr_pid);
 	strncpy(ofp_ports[0].of_ifname, argv[1], strlen(argv[1]));
 	strncpy(ofp_ports[0].ctrl_ip, argv[2], strlen(argv[2]));
     signal(SIGINT, OFP_bye);
@@ -203,9 +204,12 @@ int main(int argc, char **argv)
 			mail = (tOFP_MBX *)mbuf.mtext;
 			//ofp_ports[port].port = TEST_PORT_ID;
 			//DBG_OFP(DBGLVL1,&ofp_ports[0],"<-- Rx ofp message\n");
-			if ((ret=OFP_decode_frame(mail, &ofp_ports[0])) == ERROR)
+			if ((ret=OFP_decode_frame(mail, &ofp_ports[0])) == ERROR) {
+				//printf("<%d at ofpd\n", __LINE__);
 				continue;
+			}
 			else if (ret == FALSE) {
+				//printf("<%d at ofpd\n", __LINE__);
 				for(;;) {
 					sleep(1);
 					if (ofpdInit(ofp_ports[0].of_ifname, ofp_ports[0].ctrl_ip) == 0)
@@ -220,7 +224,7 @@ int main(int argc, char **argv)
 				puts("====================Restart connection.====================");
 				continue;
 			}
-			OFP_FSM(&ofp_ports[0], ofp_ports[0].event);
+			//OFP_FSM(&ofp_ports[0], ofp_ports[0].event);
 			break;
 		
 		case IPC_EV_TYPE_CLI:
@@ -232,6 +236,7 @@ int main(int argc, char **argv)
 					OFP_encode_port_status(mail, &ofp_ports[0]);
 					OFP_FSM(&ofp_ports[0], E_PORT_STATUS);
 				case SHOW_FLOW:
+					printf("<%d at ofpd\n", __LINE__);
 					memcpy(&cli_2_dp.cli_2_ofp, cli_2_ofp, sizeof(cli_2_ofp_t));
 					cli_2_dp.msg_type = CLI;
 					U16 mulen = sizeof(cli_2_dp_t);

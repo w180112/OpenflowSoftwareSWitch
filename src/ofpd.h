@@ -70,7 +70,7 @@ typedef struct {
 	int 				sockfd;
 	U16					event;
 	ofp_header_t 		ofp_header;
-	ofp_multipart_t 	ofp_multipart;
+	//ofp_multipart_t 	ofp_multipart;
 	ofp_packet_in_t 	ofp_packet_in;
 	flowmod_info_t 		flowmod_info;
 	packet_out_info_t 	packet_out_info;

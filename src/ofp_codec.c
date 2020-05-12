@@ -21,12 +21,16 @@
 void 	OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 STATUS 	OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
 STATUS 	OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
+STATUS OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
 
 extern pid_t ofp_cp_pid;
 extern pid_t ofp_dp_pid;
 extern pid_t tmr_pid;
 
-ofp_port_status_t *port_status_head;
+port_status_t *port_status_head;
+
+U8 			tmp_buf[16384];
+U8 			*tmp_buf_ptr = tmp_buf;
 
 /*============================ DECODE ===============================*/
 
@@ -42,17 +46,17 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
     U16			mulen;
 	U8			*mu;
 	tOFP_MSG 	*msg;
-	
-	if (mail->len > ETH_MTU) {
-	    DBG_OFP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
-	    return ERROR;
-	}
 
 	msg = (tOFP_MSG *)(mail->refp);
 	port_ccb->sockfd = msg->sockfd;
 	mu = (U8 *)(msg->buffer);
 	mulen = (mail->len) - (sizeof(int) + 1);
 	
+	if (mulen > ETH_MTU) {
+	    DBG_OFP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
+	    return ERROR;
+	}
+
 	if (msg->type == DRIV_FAIL) {
 		kill(tmr_pid,SIGTERM);
         kill(ofp_cp_pid,SIGTERM);
@@ -61,45 +65,53 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 		return FALSE;
 	}
     //PRINT_MESSAGE(mu,mulen);
-	for(U16 ofp_len=0; ofp_len<mulen;) {
-		//printf("ofp_len = %u, mulen = %u\n", ofp_len, mulen);
-		switch(((ofp_header_t *)(mu+ofp_len))->type) {
+	memcpy(tmp_buf_ptr,mu,mulen);
+	tmp_buf_ptr += mulen;
+	//PRINT_MESSAGE(tmp_buf,tmp_buf_ptr - tmp_buf);
+	for(U16 ofp_len=0; ofp_len<(tmp_buf_ptr-tmp_buf);) {
+		//printf("ofp_len = %u, tmp_buf_ptr-tmp_buf = %u\n", ofp_len, tmp_buf_ptr-tmp_buf);
+		switch(((ofp_header_t *)(tmp_buf+ofp_len))->type) {
 		case OFPT_HELLO:
 			printf("----------------------------------\nrecv hello msg\n");
 			port_ccb->event = E_RECV_HELLO;
-			memcpy(&(port_ccb->ofp_header),mu+ofp_len,sizeof(ofp_header_t));
-			ofp_len += ntohs(((ofp_header_t *)(mu+ofp_len))->length);
+			memcpy(&(port_ccb->ofp_header),tmp_buf+ofp_len,sizeof(ofp_header_t));
 			break;
 		case OFPT_FEATURES_REQUEST:
 			printf("----------------------------------\nrecv feature request\n");
 			port_ccb->event = E_FEATURE_REQUEST;
-			memcpy(&(port_ccb->ofp_header),mu+ofp_len,sizeof(ofp_header_t));
-			ofp_len += ntohs(((ofp_header_t *)(mu+ofp_len))->length);
+			memcpy(&(port_ccb->ofp_header),tmp_buf+ofp_len,sizeof(ofp_header_t));
 			break;
 		case OFPT_MULTIPART_REQUEST:
 			printf("----------------------------------\nrecv multipart\n");
 			port_ccb->event = E_MULTIPART_REQUEST;
-			memcpy(&(port_ccb->ofp_multipart),mu+ofp_len,sizeof(ofp_multipart_t));
-			ofp_len += ntohs(((ofp_header_t *)(mu+ofp_len))->length);
+			OFP_encode_multipart_reply(port_ccb, tmp_buf+ofp_len, ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length));
 			break;
 		case OFPT_ECHO_REPLY:
 			port_ccb->event = E_ECHO_REPLY;
-			ofp_len += ntohs(((ofp_header_t *)(mu+ofp_len))->length);
 			break;
 		case OFPT_FLOW_MOD:
 			port_ccb->event = E_FLOW_MOD;
-			printf("----------------------------------\nrecv flow mod\n");
-			OFP_decode_flowmod(port_ccb, mu+ofp_len, mulen);
-			ofp_len += ntohs(((ofp_header_t *)(mu+ofp_len))->length);
+			//PRINT_MESSAGE(tmp_buf+ofp_len, mulen);
+			//printf("----------------------------------\nrecv flow mod\n");
+			OFP_decode_flowmod(port_ccb, tmp_buf+ofp_len, ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length));
+			//printf("<%d at ofp_codec.c\n", __LINE__);
 			break;
 		case OFPT_PACKET_OUT:
 			port_ccb->event = E_PACKET_OUT;
-			printf("----------------------------------\nrecv packet out\n");
+			//printf("----------------------------------\nrecv packet out\n");
 			//PRINT_MESSAGE(mu, mulen);
-			OFP_decode_packet_out(port_ccb, mu+ofp_len, mulen);
-			ofp_len += ntohs(((ofp_header_t *)(mu+ofp_len))->length);
+			OFP_decode_packet_out(port_ccb, tmp_buf+ofp_len, ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length));
 			break;
 		default:
+			port_ccb->event = E_OTHERS;
+			break;
+		}
+		ofp_len += ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length);
+		OFP_FSM(port_ccb, port_ccb->event);
+		//printf("<%d at ofp_codec.c\n", __LINE__);
+		if ((tmp_buf_ptr - tmp_buf - ofp_len) < 4 || (tmp_buf_ptr - tmp_buf - ofp_len) < ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length)) {
+			memcpy(tmp_buf,tmp_buf+ofp_len,tmp_buf_ptr-tmp_buf-ofp_len);
+			tmp_buf_ptr = tmp_buf + (tmp_buf_ptr - tmp_buf - ofp_len);
 			break;
 		}
 	}
@@ -148,7 +160,7 @@ void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	port_ccb->ofp_packet_in.match.length = htons(ofp_match_length);
 	port_ccb->ofp_packet_in.header.length = htons(length);
 
-	memset(port_ccb->ofpbuf,0,ETH_MTU);
+	memset(port_ccb->ofpbuf,0,MSG_LEN);
 	memcpy(port_ccb->ofpbuf,&(port_ccb->ofp_packet_in),sizeof(ofp_packet_in_t));
 	memcpy(port_ccb->ofpbuf+sizeof(ofp_packet_in_t),&port_no,sizeof(uint32_t));
 	memcpy(port_ccb->ofpbuf+sizeof(ofp_packet_in_t)+sizeof(uint32_t)+6,mu,mulen);
@@ -242,6 +254,35 @@ STATUS OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	return TRUE;
 }
 
+STATUS OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) 
+{
+	ofp_multipart_t *ofp_multipart = (ofp_multipart_t *)(port_ccb->ofpbuf);
+	U8 *ofpbuf_ptr = port_ccb->ofpbuf;
+
+	ofp_multipart->ofp_header.version = ((ofp_multipart_t *)mu)->ofp_header.version;
+	ofp_multipart->ofp_header.type = OFPT_MULTIPART_REPLY;
+	ofp_multipart->ofp_header.xid = ((ofp_multipart_t *)mu)->ofp_header.xid;
+	ofp_multipart->ofp_header.length = sizeof(ofp_multipart_t);
+
+	ofp_multipart->type = ((ofp_multipart_t *)mu)->type;
+	ofp_multipart->flags = ((ofp_multipart_t *)mu)->flags;
+	ofpbuf_ptr = port_ccb->ofpbuf + sizeof(ofp_multipart_t);
+	port_status_t *cur;
+	for(cur=port_status_head; cur!=NULL; cur=cur->next) {
+		if ((ofp_multipart->ofp_header.length + sizeof(ofp_port_status_t)) > MSG_LEN) {
+			puts("too many ports info in ofp_multipart");
+			break;
+		}
+		memcpy(ofpbuf_ptr,&(cur->ofp_port_status),sizeof(ofp_port_status_t));
+		ofpbuf_ptr += sizeof(ofp_port_status_t);
+		ofp_multipart->ofp_header.length += sizeof(ofp_port_status_t);
+	}
+	port_ccb->ofpbuf_len = ofp_multipart->ofp_header.length;
+	ofp_multipart->ofp_header.length = htons(ofp_multipart->ofp_header.length);
+	//PRINT_MESSAGE(port_ccb->ofpbuf,port_ccb->ofpbuf_len);
+	return TRUE;
+}
+
 STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) 
 {
 	ofp_instruction_actions_t *ofp_instruction_actions;
@@ -260,7 +301,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 
 	//PRINT_MESSAGE((unsigned char *)&(((ofp_flow_mod_t *)mu)->match), 32);
 	uint16_t match_len = ntohs(((ofp_flow_mod_t *)mu)->match.length) - (sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type));
-	printf("match len = %u\n", match_len);
+	//printf("match len = %u\n", match_len);
 	if (match_len < 8) {
 		/* This means match field in flowmod is empty, and we should align to 8 bits */
 		ofp_instruction_actions = (ofp_instruction_actions_t *)(mu + sizeof(ofp_flow_mod_t));
@@ -280,17 +321,17 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 			case OFPXMT_OFB_IN_PORT:
 				port_ccb->flowmod_info.match_info[i].port_id = ntohl(*(uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t)));
 				port_ccb->flowmod_info.match_info[i].type = PORT;
-				printf("match port id = %u\n", port_ccb->flowmod_info.match_info[i].port_id);
+				//printf("match port id = %u\n", port_ccb->flowmod_info.match_info[i].port_id);
 				break;
 			case OFPXMT_OFB_ETH_DST:
 				memcpy(port_ccb->flowmod_info.match_info[i].dst_mac, (U8 *)cur + sizeof(ofp_oxm_header_t), ETH_ALEN);
 				port_ccb->flowmod_info.match_info[i].type = DST_MAC;
-				printf("fill match field dst_mac= %x\n", port_ccb->flowmod_info.match_info[i].dst_mac[0]);
+				//printf("fill match field dst_mac= %x\n", port_ccb->flowmod_info.match_info[i].dst_mac[0]);
 				break;
 			case OFPXMT_OFB_ETH_SRC:
 				memcpy(port_ccb->flowmod_info.match_info[i].src_mac, (U8 *)cur + sizeof(ofp_oxm_header_t), ETH_ALEN);
 				port_ccb->flowmod_info.match_info[i].type = SRC_MAC;
-				printf("fill match field src_mac= %x\n", port_ccb->flowmod_info.match_info[i].src_mac[0]);
+				//printf("fill match field src_mac= %x\n", port_ccb->flowmod_info.match_info[i].src_mac[0]);
 				break;
 			case OFPXMT_OFB_ETH_TYPE:
 				port_ccb->flowmod_info.match_info[i].ether_type = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
@@ -330,7 +371,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 				return FALSE;
 			}
 			match_len = match_len - cur->oxm_union.oxm_struct.oxm_length - sizeof(ofp_oxm_header_t);
-			printf("match len = %u\n", match_len);
+			//printf("match len = %u %u %x\n", match_len, cur->oxm_union.oxm_struct.oxm_length, cur);
 			cur = (ofp_oxm_header_t *)(((U8 *)cur) + cur->oxm_union.oxm_struct.oxm_length + sizeof(ofp_oxm_header_t));
 		}
 		port_ccb->flowmod_info.match_info[--i].is_tail = TRUE;
@@ -363,7 +404,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 			puts("Reach max flowmod action list, drop remaining actions");
 			break;
 		}
-		printf("total len = %u %u\n", len, action_len);
+		//printf("total len = %u %u\n", len, action_len);
 		if (len == action_len)
 			break;
 		if (((ofp_action_header_t *)cur)->type == htons(OFPAT_SET_FIELD)) {
@@ -434,7 +475,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 			port_ccb->flowmod_info.action_info[i].max_len = ntohs(ofp_action_output->max_len);
 			port_ccb->flowmod_info.action_info[i].port_id = ntohl(ofp_action_output->port);
 			port_ccb->flowmod_info.action_info[i].type = PORT;
-			printf("action port id = %u %u\n", port_ccb->flowmod_info.action_info[i].port_id, htonl(ofp_action_output->port));
+			//printf("action port id = %u %u\n", port_ccb->flowmod_info.action_info[i].port_id, ntohl(ofp_action_output->port));
 			/*if (head_action_info == NULL) {
 				head_action_info = new_action;
 				cur_action_info = head_action_info;
@@ -547,7 +588,7 @@ STATUS OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 			port_ccb->packet_out_info.action_info[i].port_id = ntohl(ofp_action_output->port);
 			port_ccb->packet_out_info.action_info[i].type = PORT;
 			//PRINT_MESSAGE(cur,16);
-			printf("action port id = %u %u\n", port_ccb->packet_out_info.action_info[i].port_id, ntohl(ofp_action_output->port));
+			//printf("action port id = %u %u\n", port_ccb->packet_out_info.action_info[i].port_id, ntohl(ofp_action_output->port));
 			/*if (head_action_info == NULL) {
 				head_action_info = new_action;
 				cur_action_info = head_action_info;

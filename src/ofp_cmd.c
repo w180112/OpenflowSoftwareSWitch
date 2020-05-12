@@ -210,9 +210,9 @@ static int cmd_addif(int argc, char argv[4][64])
 			cli_2_ofp.opcode = ADD_IF;
 			strncpy(cli_2_ofp.brname,brname,64);
 			strncpy(cli_2_ofp.ifname,ifname,64);
-			if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE);
+			ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t));
+			printf("<%d at ofp_cmd.c\n", __LINE__);
 			continue;
-
 		case ENODEV:
 			if (if_nametoindex(ifname) == 0)
 				fprintf(stderr, "interface %s does not exist!\n", ifname);
@@ -301,7 +301,6 @@ static int cmd_delif(int argc, char argv[4][64])
 STATUS ofp_cmd2mailbox(U8 *mu, int mulen)
 {
 	tOFP_MBX mail;
-
     if (ofpQid == -1) {
 		if ((ofpQid=msgget(OFP_Q_KEY,0600|IPC_CREAT)) < 0) {
 			printf("send> Oops! ofpQ(key=0x%x) not found\n",OFP_Q_KEY);
@@ -315,9 +314,10 @@ STATUS ofp_cmd2mailbox(U8 *mu, int mulen)
 
 	mail.len = mulen;
 	memcpy(mail.refp,mu,mulen); /* mail content will be copied into mail queue */
-	
+	printf("<%d at ofp_cmd.c mulen = %u\n", __LINE__, mulen);
 	//printf("ofp_send2mailbox(ofp_sock.c %d): mulen=%d\n",__LINE__,mulen);
 	mail.type = IPC_EV_TYPE_CLI;
 	ipc_sw(ofpQid, &mail, sizeof(mail), -1);
+	printf("<%d at ofp_cmd.c\n", __LINE__);
 	return TRUE;
 }

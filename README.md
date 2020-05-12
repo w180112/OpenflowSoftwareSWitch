@@ -7,7 +7,9 @@ This is a small OpenFlow protocol based software switch implementation in C.
 
 ## System required:
 
-Linux OS
+1. Linux OS
+2. RAM size larger than 2 GiB
+3. x86 system or ARM system with little endian
 
 ## How to use:
 
@@ -61,3 +63,5 @@ To remove the binary files
 ## TODO:
 
 1. implementation Flowmod type - "delete flow" and flow timeout.
+2. del bridge/port and make bridge can be joined into socket operation
+3. change IPC method

@@ -591,7 +591,7 @@ STATUS GET_MSGQ(tIPC_ID *qid, int msgkey)
     }
     //printf("---> qbytes=%d qnum=%d\n",stat.msg_qbytes, stat.msg_qnum);
    
-    stat.msg_qbytes *= 10; //enlarge size
+    stat.msg_qbytes *= 65536; //enlarge size
     if (msgctl(*qid, IPC_SET, &stat)<0){
         printf("Can not enlarge msg-queue size!\n");
         return ERROR;

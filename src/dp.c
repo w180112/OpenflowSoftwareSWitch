@@ -18,13 +18,13 @@ typedef struct q {
 	struct q *next;
 }q_t;
 
-flow_t flow[256]; //flow table
+flow_t flow[TABLE_SIZE]; //flow table
 
 extern STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id);
 extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 extern STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
 extern STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head);
-extern STATUS print_field(void **cur, uint8_t *type);
+extern STATUS print_field(void **cur, uint16_t *type);
 
 void dp(tIPC_ID dpQid);
 STATUS enq_pkt_in(tOFP_MBX *mail, q_t **head, int id);
@@ -43,7 +43,7 @@ void dp(tIPC_ID dpQid)
 	pthread_t 		dp_thread = 0;
 	uint32_t 		buffer_id, id = 1;
 
-	memset(flow, 0, sizeof(flow_t)*256);
+	memset(flow, 0, sizeof(flow_t)*TABLE_SIZE);
 	for(;;) {
 		//printf("\n===============================================\n");
 		//printf("%s> waiting for ipc_rcv2() ...\n", "dp.c");
@@ -62,11 +62,11 @@ void dp(tIPC_ID dpQid)
 			//PRINT_MESSAGE(((tDP_MSG *)(mail->refp))->buffer,(mail->len) - (sizeof(int) + sizeof(uint16_t)));
 			//ofp_ports[port].port = TEST_PORT_ID;
 			//DBG_OFP(DBGLVL1,&ofp_ports[0],"<-- Rx ofp message\n");
+			//printf("<%d send packet_in\n", __LINE__);
 			if ((ret = DP_decode_frame(mail, dp_io_fds_head, &buffer_id)) == ERROR)
 				continue;
 			else if (ret == FALSE) {
 				if (buffer_id != OFP_NO_BUFFER) {
-					//puts("send packet_in");
 					if (total_enq_node >= 0xfffffffe)
 						continue;
 					enq_pkt_in(mail,&q_head,id);
@@ -74,12 +74,14 @@ void dp(tIPC_ID dpQid)
 					if (id >= 0xfffffffe)
 						id = 1;
 				}
-				else 
+				else
 					id = OFP_NO_BUFFER;
 				tDP2OFP_MSG msg;
 				msg.id = id;
 				memcpy(msg.buffer, (U8 *)((tDP_MSG *)(mail->refp)), (mail->len));
+				//printf("<%d send packet_in\n", __LINE__);
 				dp_send2ofp((U8 *)&msg, (mail->len) + sizeof(int));
+				//printf("<%d send packet_in\n", __LINE__);
 				//puts("send to ofp");
 			}
 			else {
@@ -89,7 +91,7 @@ void dp(tIPC_ID dpQid)
 		case IPC_EV_TYPE_OFP:
 			mail = (tOFP_MBX*)mbuf.mtext;
 			if (*(mail->refp) == FLOWMOD) {
-				printf("<%d\n", __LINE__);
+				//printf("<%d at dp.c\n", __LINE__);
 				/* TODO: if buffer_id exist, needs to make the buffered packet match the flow refer to this buffer_id */
 				flowmod_info_t flowmod_info;
 				uint32_t flow_index;
@@ -98,13 +100,11 @@ void dp(tIPC_ID dpQid)
 				//PRINT_MESSAGE(flowmod_info.match_info,sizeof(pkt_info_t)*20);
 				//PRINT_MESSAGE(flowmod_info.action_info,sizeof(pkt_info_t)*20);
 				memcpy(&flowmod_info, mail->refp, sizeof(flowmod_info_t));
-				if (flowmod_match_process(flowmod_info, &flow_index) == FALSE) {
-					puts("flow table is full by match field");
+				if (flowmod_match_process(flowmod_info, &flow_index) == TRUE) {
+					flowmod_action_process(flowmod_info, flow_index);
 				}
-				if (flowmod_action_process(flowmod_info, flow_index) == FALSE) {
-					puts("flow table is full by action field");
-				}
-				printf("<%d %d\n", __LINE__, flow[flow_index].is_exist);
+				
+				//printf("<%d at dp.c %d\n", __LINE__, flow[flow_index].is_exist);
 				
 				//printf("flowmod_info action len = %u\n", flowmod_info.action_info[0].max_len);
 				//free(flowmod_info.action_info);
@@ -114,7 +114,7 @@ void dp(tIPC_ID dpQid)
 
 				memset(packet_out_info.action_info, 0, sizeof(pkt_info_t)*20);
 				memcpy(&packet_out_info, mail->refp, sizeof(packet_out_info_t));
-				puts("recv pkt_out from ofp");
+				//puts("recv pkt_out from ofp");
 				if (pkt_out_process(packet_out_info, dp_io_fds_head) == FALSE) {
 					puts("pkt_out processing exit unexpected.");
 				}
@@ -133,7 +133,7 @@ void dp(tIPC_ID dpQid)
 						break;
 					case SHOW_FLOW:
 						//printf("<%d\n", __LINE__);
-						for(int i=0; i<256; i++) {
+						for(int i=0; i<TABLE_SIZE; i++) {
 							//printf("<%d %d\n", __LINE__, flow[i].is_exist);
 							if (flow[i].is_exist == FALSE)
 								continue;
@@ -141,14 +141,15 @@ void dp(tIPC_ID dpQid)
 							//TODO: dump the flow table
 							printf("flow %d: cookie=%lx, priority=%u, pkt count=%lu, match field: ", i, flow[i].cookie, flow[i].priority, flow[i].pkt_count);
 							void *cur;
-							uint8_t type;
-							type = flow[i].type;
+							uint16_t type;
+							type = flow[i].match_type;
 							for(cur=flow[i].next_match;;) {
 								if (print_field(&cur, &type) == END)
 									break;
 								printf(", ");
 							}
 							printf("action field: ");
+							type = flow[i].action_type;
 							for(cur=flow[i].next_action;;) {
 								if (print_field(&cur, &type) == END)
 									break;

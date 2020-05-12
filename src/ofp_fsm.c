@@ -80,7 +80,7 @@ STATUS OFP_FSM(tOFP_PORT *port_ccb, U16 event)
     register int  	i,j;
     STATUS			retval;
     char 			str1[30],str2[30];
-
+	
 	if (!port_ccb){
         DBG_OFP(DBGLVL1,port_ccb,"Error! No port found for the event(%d)\n",event);
         return FALSE;
@@ -110,7 +110,6 @@ STATUS OFP_FSM(tOFP_PORT *port_ccb, U16 event)
             event, OFP_state2str(port_ccb->state));
   		return TRUE; /* still pass to endpoint */
     }
-    
     /* Correct state found */
     if (port_ccb->state != ofp_fsm_tbl[i].next_state){
     	strcpy(str1,OFP_state2str(port_ccb->state));
@@ -118,8 +117,7 @@ STATUS OFP_FSM(tOFP_PORT *port_ccb, U16 event)
         DBG_OFP(DBGLVL1,port_ccb,"state changed from %s to %s\n",str1,str2);
         port_ccb->state = ofp_fsm_tbl[i].next_state;
     }
-    
-	for(j=0; ofp_fsm_tbl[i].hdl[j]; j++){
+	for(j=0; ofp_fsm_tbl[i].hdl[j]; j++) {
        	retval = (*ofp_fsm_tbl[i].hdl[j])(port_ccb);
        	if (!retval)  return TRUE;
     }
@@ -278,6 +276,8 @@ STATUS A_clear_query_cnt(tOFP_PORT *port_ccb)
  *********************************************************************/
 STATUS A_send_multipart_reply(tOFP_PORT *port_ccb)
 {
+	//printf("<%d at send multipart reply\n", __LINE__);
+#if 0
 	ofp_multipart_t ofp_multipart;
 	struct ofp_port ofp_port_desc;
 	struct ifaddrs 	*ifaddr; 
@@ -298,22 +298,6 @@ STATUS A_send_multipart_reply(tOFP_PORT *port_ccb)
 
 	memset(&ofp_port_desc,0,sizeof(struct ofp_port));
 
-#if 0
-	ofp_port_desc.port_no = htonl(1);
-	strcpy(ofp_port_desc.name,IF_NAME);
-	int fd;
-    struct ifreq ifr;
- 
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
- 	ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name,IF_NAME,IFNAMSIZ-1);
- 	ioctl(fd,SIOCGIFHWADDR,&ifr);
-    close(fd);
-    memcpy(ofp_port_desc.hw_addr,(unsigned char *)ifr.ifr_hwaddr.sa_data,OFP_ETH_ALEN);
-	memcpy((U8 *)buf_ptr,&ofp_port_desc,sizeof(struct ofp_port));
-	buf_ptr += sizeof(struct ofp_port);
-	ofp_multipart.ofp_header.length += sizeof(struct ofp_port);
-#else
 	i = 0;
 	for(ifa=ifaddr; ifa != NULL; ifa=ifa->ifa_next) {
 		ifa->ifa_addr = (struct sockaddr *)((uintptr_t)(ifa->ifa_addr) >> 32);
@@ -341,12 +325,16 @@ STATUS A_send_multipart_reply(tOFP_PORT *port_ccb)
 		buf_ptr += sizeof(struct ofp_port);
 		ofp_multipart.ofp_header.length += sizeof(struct ofp_port);
 	}
-#endif
+
 	uint16_t length = ofp_multipart.ofp_header.length;
 	ofp_multipart.ofp_header.length = htons(ofp_multipart.ofp_header.length);
 	memcpy(buf, &ofp_multipart, sizeof(ofp_multipart_t));
 	drv_xmit(buf, length, port_ccb->sockfd);
 	freeifaddrs(ifaddr);
+#endif
+	port_ccb->sockfd = ofp_io_fds[0];
+	drv_xmit(port_ccb->ofpbuf, port_ccb->ofpbuf_len, port_ccb->sockfd);
+
 	return TRUE;
 }
 
@@ -369,7 +357,9 @@ STATUS A_send_packet_in(tOFP_PORT *port_ccb)
  *********************************************************************/
 STATUS A_send_flowmod_to_dp(tOFP_PORT *port_ccb)	
 {
+	//printf("<%d at ofp_fsm.c\n", __LINE__);
 	ofp_send2dp((U8 *)&(port_ccb->flowmod_info), port_ccb->flowmod_info.msg_len);
+	//printf("<%d at ofp_fsm.c\n", __LINE__);
 	memset(&(port_ccb->flowmod_info), 0, sizeof(flowmod_info_t));
 
 	return TRUE;
@@ -427,7 +417,7 @@ STATUS ofp_send2dp(U8 *mu, int mulen)
 	//printf("dp_send2mailbox(dp_sock.c %d): mulen=%d\n",__LINE__,mulen);
 	mail.type = IPC_EV_TYPE_OFP;
 	ipc_sw(dpQid, &mail, sizeof(mail), -1);
-	printf("send msg to dp\n");
+	//printf("send msg to dp\n");
 
 	return TRUE;
 }
