@@ -56,7 +56,7 @@ void ofp_cmd(void)
 	char argument[4][64];
 
 	for(;;) {
-		printf("Simple_OF_sw> ");
+		printf("OSW> ");
 		if (fgets(ofp_cli,256,stdin) == NULL)
 			continue;
 		if (cmd_parse(ofp_cli,&argue_count,argument) < 0)

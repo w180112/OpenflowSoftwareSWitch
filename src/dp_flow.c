@@ -11,7 +11,7 @@
 #include 		"dp_sock.h"
 
 extern flow_t flow[TABLE_SIZE];
-extern void dp_drv_xmit(U8 *mu, U16 mulen, uint16_t port_id, dp_io_fds_t *dp_io_fds_head);
+extern void dp_drv_xmit(U8 *mu, U16 mulen, uint32_t port_id, uint32_t in_port, dp_io_fds_t *dp_io_fds_head);
 
 STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head);
 STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_t *type);
@@ -76,7 +76,7 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 			}
 			else {
 				//printf("<%d at dp_flow.c\n", __LINE__);
-				dp_drv_xmit(mu, mulen, ((port_t *)cur)->port_id, dp_io_fds_head);
+				dp_drv_xmit(mu, mulen, ((port_t *)cur)->port_id, flow[flow_index].in_port, dp_io_fds_head);
 				//printf("<%d at dp_flow.c\n", __LINE__);
 				return TRUE;
 			}
@@ -134,14 +134,15 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 
 uint16_t find_index(U8 *info, int len)
 {
-	uint16_t index = 0;
+	uint8_t index = 0;
 	//PRINT_MESSAGE(info,len);
 	for(uint8_t i=0; i<len; i++) {
 		index += *(info + i);
 		//printf("index = %u *(info + i) = %u\n", index, *(info + i));
 	}
-	
-	return index % TABLE_SIZE;
+	index ^= *info;
+	index ^= *(info + 1);
+	return (uint16_t)index % TABLE_SIZE;
 }
 
 STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_t *type)
@@ -254,8 +255,10 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 	uint16_t hash_type = 0;
 	for(int i=0; flowmod_info.match_info[i].type; i++) {
 		//PRINT_MESSAGE(&(flowmod_info.match_info[i]),sizeof(pkt_info_t));
-		hash_index = find_index((U8*)&(flowmod_info.match_info[i]), sizeof(pkt_info_t)-1);
+		hash_index += find_index((U8*)&(flowmod_info.match_info[i]), sizeof(pkt_info_t)-1);
 		hash_type |= flowmod_info.match_info[i].type;
+		if (hash_index >= TABLE_SIZE)
+			hash_index -= TABLE_SIZE;
 		//printf("hash id = %u hash type = %u\n", hash_index, hash_type);
 	}
 	
@@ -311,6 +314,7 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 						//printf("<%d at dp_flow.c\n", __LINE__);
 					}
 					((port_t *)new_node)->port_id = flowmod_info.match_info[j].port_id;
+					flow[i].in_port = flowmod_info.match_info[j].port_id;
 					if (flowmod_info.match_info[j].is_tail == FALSE) {
 						//printf("<%d at dp_flow.c\n", __LINE__);
 						((port_t *)new_node)->type = flowmod_info.match_info[j+1].type;

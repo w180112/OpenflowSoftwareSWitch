@@ -30,11 +30,10 @@ tIPC_ID 			ofpQid=-1;
 tIPC_ID 			dpQid=-1;
 
 extern int			ofp_io_fds[2];
-extern int 			DP_SOCK_INIT(char *ifname, dp_io_fds_t **dp_io_fds_head);
 extern void 		sockd_dp(dp_io_fds_t *dp_io_fds_head);
 extern void 		dp(tIPC_ID dpQid);
 extern void 		OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
-extern STATUS 		OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb);
+extern STATUS 		OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb, uint32_t *port);
 
 pid_t ofp_cp_pid, ofp_dp_pid, dp_pid = 0, ofp_cmd_pid, tmr_pid;
 
@@ -233,7 +232,7 @@ int main(int argc, char **argv)
 			switch(cli_2_ofp->opcode)
 			{
 				case ADD_IF:
-					OFP_encode_port_status(mail, &ofp_ports[0]);
+					OFP_encode_port_status(mail, &ofp_ports[0], &(cli_2_ofp->port_id));
 					OFP_FSM(&ofp_ports[0], E_PORT_STATUS);
 				case SHOW_FLOW:
 					printf("<%d at ofpd\n", __LINE__);

@@ -168,7 +168,7 @@ void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	//printf("----------------------------------\nencode packet in\n");
 }
 
-STATUS OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb)
+STATUS OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb, uint32_t *port)
 {
 	ofp_port_status_t *ofp_port_status = (ofp_port_status_t *)port_ccb->ofpbuf;
 	int32_t port_id, speed, duplex;
@@ -200,8 +200,10 @@ STATUS OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 			return ERROR;
 		if (port_id == -1)
             printf("%s: (no interface index)", cli_2_ofp->ifname);
-        else
+        else {
 			ofp_port_status->desc.port_no = htonl((uint32_t)port_id);
+			*port = port_id;
+		}
 		if (speed == -1)
             printf(", unknown bandwidth");
         else {
@@ -507,6 +509,7 @@ STATUS OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 
 	port_ccb->packet_out_info.msg_type = PACKET_OUT;
 	port_ccb->packet_out_info.msg_len = sizeof(packet_out_info_t) - ETH_MTU + mulen - action_len - sizeof(ofp_packet_out_t);
+	//printf("mulen = %u, action_len = %u\n", mulen, action_len);
 	port_ccb->packet_out_info.buffer_id = ntohl(ofp_packet_out->buffer_id);
 	port_ccb->packet_out_info.in_port = ntohl(ofp_packet_out->in_port);
 	memcpy(port_ccb->packet_out_info.ofpbuf, (U8 *)ofp_action_header + action_len, mulen - action_len - sizeof(ofp_packet_out_t));

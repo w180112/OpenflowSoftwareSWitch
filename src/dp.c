@@ -125,7 +125,7 @@ void dp(tIPC_ID dpQid)
 				switch(cli_2_dp->cli_2_ofp.opcode)
 				{
 					case ADD_IF:
-						DP_SOCK_INIT(cli_2_dp->cli_2_ofp.ifname, &dp_io_fds_head);
+						DP_SOCK_INIT(cli_2_dp->cli_2_ofp.ifname, cli_2_dp->cli_2_ofp.port_id, &dp_io_fds_head);
 						//printf("dp_io_fds_head = %x\n", dp_io_fds_head);
 						if (dp_thread == 0) {
 							pthread_create(&dp_thread, NULL, (void *)sockd_dp, dp_io_fds_head);

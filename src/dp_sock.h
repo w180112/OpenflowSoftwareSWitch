@@ -20,7 +20,7 @@ typedef struct dp_io_fds {
 	struct dp_io_fds 	*next;
 }dp_io_fds_t;
 
-int 			DP_SOCK_INIT(char *ifname, dp_io_fds_t **dp_io_fds_head);
+int 			DP_SOCK_INIT(char *ifname, uint32_t port_id, dp_io_fds_t **dp_io_fds_head);
 void 			sockd_dp(dp_io_fds_t *dp_io_fds_head);
 extern STATUS 	dp_send2mailbox(U8 *mu, int mulen);
 

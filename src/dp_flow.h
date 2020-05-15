@@ -39,6 +39,7 @@ typedef struct flow {
 	uint16_t action_type;
 	uint64_t pkt_count;
 	uint16_t hash_type;
+	uint32_t in_port;
 	BOOL	is_exist;
 	void *next_match;
 	void *next_action;

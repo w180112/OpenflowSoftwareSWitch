@@ -29,6 +29,7 @@ typedef struct cli_2_ofp {
     uint8_t opcode;
     char brname[64];
     char ifname[64];
+    uint32_t port_id;
     char msg[256];
 }cli_2_ofp_t;
 

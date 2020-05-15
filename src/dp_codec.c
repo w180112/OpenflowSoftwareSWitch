@@ -26,7 +26,7 @@ extern flow_t flow[TABLE_SIZE];
 
 extern STATUS find_flow(U8 *mu, U16 mulen, uint32_t port_id, uint32_t *flow_index);
 extern STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head);
-extern void dp_drv_xmit(U8 *mu, U16 mulen, uint16_t port_id, dp_io_fds_t *dp_io_fds_head);
+extern void dp_drv_xmit(U8 *mu, U16 mulen, uint32_t port_id, uint32_t in_port, dp_io_fds_t *dp_io_fds_head);
 
 /*============================ DECODE ===============================*/
 
@@ -184,8 +184,8 @@ STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id,
 STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head)
 {
 	U8 	*mu = packet_out_info.ofpbuf;
-	U16 mulen = packet_out_info.msg_len - sizeof(packet_out_info_t);
-
+	U16 mulen = packet_out_info.msg_len - sizeof(packet_out_info_t) + ETH_MTU;
+	//printf("packet_out_info.msg_len = %u\n", packet_out_info.msg_len);
 	for(int i = 0;; i++) {
 		if (i >= 20) {
 			puts("reach max number action field in pkt_out");
@@ -194,7 +194,8 @@ STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds
 		//printf("aciton type = %u\n", packet_out_info.action_info[i].type);
 		switch (packet_out_info.action_info[i].type) {
 		case PORT:
-			dp_drv_xmit(mu, mulen, packet_out_info.action_info[i].port_id, dp_io_fds_head);
+			//PRINT_MESSAGE(mu, mulen);
+			dp_drv_xmit(mu, mulen, packet_out_info.action_info[i].port_id, packet_out_info.in_port, dp_io_fds_head);
 			return TRUE;
 		case DST_MAC:
 			memcpy(mu, packet_out_info.action_info[i].dst_mac, ETH_ALEN);
