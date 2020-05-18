@@ -22,6 +22,9 @@ static struct sockaddr_ll 	sll;
 struct epoll_event 			ev;
 int 						epollfd;
 int 						max_fd;
+extern sem_t 				*sem;
+extern tDP_MSG 				*dp_buf;
+extern int					*post_index, *pre_index;
 
 /**************************************************************************
  * DP_SOCK_INIT :
@@ -149,8 +152,8 @@ int DP_SOCK_INIT(char *ifname, uint32_t port_id, dp_io_fds_t **dp_io_fds_head)
  **************************************************************************/
 void sockd_dp(dp_io_fds_t *dp_io_fds_head)
 {
-	int			n,rxlen;
-	tDP_MSG 	msg;
+	int			n, rxlen;
+	tDP_MSG 	*msg;
 	struct epoll_event events[MAX_EVENTS];
 	int nfds;
 	dp_io_fds_t *cur_io_fd;
@@ -211,7 +214,6 @@ void sockd_dp(dp_io_fds_t *dp_io_fds_head)
 	#endif
 	#if 1
 	for(;;) {    
-		//printf("<%d\n", __LINE__);
 		if ((n = select(max_fd+1,&dp_io_ready,(fd_set*)0,(fd_set*)0,NULL/*&to*/)) < 0){
    		    /* if "to" = NULL, then "select" will block indefinite */
    			printf("select error !!! Giveup this receiving.\n");
@@ -224,29 +226,39 @@ void sockd_dp(dp_io_fds_t *dp_io_fds_head)
      	 *---------------------------------------------------------------------*/
 		for (cur_io_fd=dp_io_fds_head; cur_io_fd!=NULL; cur_io_fd=cur_io_fd->next) {
     		if (FD_ISSET(cur_io_fd->fd,&dp_io_ready)) {
-    			rxlen = recvfrom(cur_io_fd->fd,msg.buffer,ETH_MTU,0,NULL,NULL);
+				if (!((*post_index+1) ^ atomic_int32_add_after(*pre_index, 0))) {
+					break;
+				}
+				msg = dp_buf + *post_index;
+				//printf("msg = %x at dp_sock.c\n", msg);
+    			rxlen = recvfrom(cur_io_fd->fd,msg->buffer,ETH_MTU,0,NULL,NULL);
     			if (rxlen <= 0) {
       				printf("Error! recvfrom(): len <= 0 at DP\n");
 					cur_io_fd->err_count++;
-					msg.sockfd = 0;
-					msg.port_no = 0;
+					msg->sockfd = 0;
+					msg->port_no = 0;
 					break;
     			}
 				else {
-					/* In VM,if there's 2 ports at least, socket fd will recv packets from all ports
-					   , so we need to block packets from and to port 6653 */
-					//if (*(U16 *)(msg.buffer+34) == 0xFD19 || *(U16 *)(msg.buffer+36) == 0xFD19)
-						//continue;
 					cur_io_fd->pkt_count++;
-    				msg.sockfd = cur_io_fd->fd;
-					msg.port_no = cur_io_fd->port_no;
+    				msg->sockfd = cur_io_fd->fd;
+					msg->port_no = cur_io_fd->port_no;
+
 					//printf("port id = %u, fd = %d\n", msg.port_no, msg.sockfd);
 				}
+				msg->len = rxlen;
 				//PRINT_MESSAGE((char*)msg.buffer, rxlen);
-   				/*printf("=========================================================\n");
-				printf("rxlen=%d\n",rxlen);*/
-    		
-    			dp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+2);
+   				//printf("=========================================================\n");
+				//printf("rxlen=%d\n",rxlen);
+    			//printf("*post_index = %d\n", *post_index);
+				//sem_wait(sem);
+				(*post_index)++;
+				if (*post_index >= PKT_BUF)
+					*post_index = 0;
+				//atomic_int32_compare_swap(*post_index, PKT_BUF, 0);
+            	//sem_post(sem);
+				dp_send2mailbox((U8 *)post_index, sizeof(int));
+				//dp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+2);
    			} /* if select */
 		}
    	} /* for */
@@ -261,6 +273,7 @@ void dp_drv_xmit(U8 *mu, U16 mulen, uint32_t port_id, uint32_t in_port, dp_io_fd
 		for(cur_io_fd=dp_io_fds_head; cur_io_fd!=NULL; cur_io_fd=cur_io_fd->next) {
 			if (cur_io_fd->port_no == in_port)
 				continue;
+			sendto(cur_io_fd->fd, mu, mulen, 0, (struct sockaddr*)&sll, sizeof(sll));
 			//printf("%d of %u bytes sent from %d\n", sendto(cur_io_fd->fd, mu, mulen, 0, (struct sockaddr*)&sll, sizeof(sll)), mulen, cur_io_fd->fd);
 			//printf("cur_io_fd->port_no = %u, in_port = %u\n", cur_io_fd->port_no, in_port);
 		}

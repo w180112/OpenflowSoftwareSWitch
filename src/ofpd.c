@@ -10,6 +10,8 @@
 #include        	<common.h>
 #include 			<unistd.h>
 #include			<pthread.h>
+#include 			<sys/mman.h>
+#include 			<semaphore.h>
 
 #include        	"ofpd.h"
 #include			"ofp_codec.h"
@@ -29,6 +31,10 @@ tOFP_PORT			ofp_ports[MAX_USER_PORT_NUM+1]; //port is 1's based
 tIPC_ID 			ofpQid=-1;
 tIPC_ID 			dpQid=-1;
 
+sem_t *sem;
+tDP_MSG *dp_buf;
+int *post_index, *pre_index;
+
 extern int			ofp_io_fds[2];
 extern void 		sockd_dp(dp_io_fds_t *dp_io_fds_head);
 extern void 		dp(tIPC_ID dpQid);
@@ -46,6 +52,9 @@ void OFP_bye()
     DEL_MSGQ(ofpQid);
 	printf("dp> delete Qid(0x%x)\n",dpQid);
     DEL_MSGQ(dpQid);
+	sem_destroy(sem);
+    munmap(sem, sizeof(sem_t));
+    munmap(dp_buf, sizeof(tDP_MSG)*PKT_BUF);
     printf("bye!\n");
 	exit(0);
 }
@@ -83,6 +92,16 @@ STATUS DP_ipc_init(void)
 	   	return ERROR;
 	}
 	printf("dp> new Qid(0x%x)\n",dpQid);
+
+	sem = mmap(NULL, sizeof(sem_t), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+	dp_buf = mmap(NULL, sizeof(tDP_MSG)*PKT_BUF, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	post_index = mmap(NULL, sizeof(int), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+	pre_index = mmap(NULL, sizeof(int), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+	*post_index = 0;
+	*pre_index = 0;
+	sem_init(sem, 1, 1);
+	memset(dp_buf, 0, sizeof(tDP_MSG)*PKT_BUF);
+
 	return TRUE;
 }
 
@@ -223,6 +242,7 @@ int main(int argc, char **argv)
 				puts("====================Restart connection.====================");
 				continue;
 			}
+			//printf("<%d at ofpd\n", __LINE__);
 			//OFP_FSM(&ofp_ports[0], ofp_ports[0].event);
 			break;
 		
@@ -266,11 +286,14 @@ int main(int argc, char **argv)
 			break;
 		case IPC_EV_TYPE_DP:
 			mail = (tOFP_MBX*)mbuf.mtext;
+			//printf("<%d at ofpd\n", __LINE__);
 			OFP_encode_packet_in(mail, &ofp_ports[0]);
+			//printf("<%d at ofpd\n", __LINE__);
 			ofp_ports[0].event = E_PACKET_IN;
 			//puts("recv pkt_in");
 			//PRINT_MESSAGE(ofp_ports[0].ofpbuf, ofp_ports[0].ofpbuf_len);
 			OFP_FSM(&ofp_ports[0], ofp_ports[0].event);
+			//printf("<%d at ofpd\n", __LINE__);
 			break;
 		default:
 		    ;

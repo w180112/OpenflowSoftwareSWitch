@@ -20,11 +20,15 @@ typedef struct q {
 
 flow_t flow[TABLE_SIZE]; //flow table
 
-extern STATUS DP_decode_frame(tOFP_MBX *mail, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id);
+extern STATUS DP_decode_frame(tDP_MSG *msg, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id);
 extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 extern STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
 extern STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head);
 extern STATUS print_field(void **cur, uint16_t *type);
+
+extern sem_t 				*sem;
+extern tDP_MSG 				*dp_buf;
+extern int					*post_index, *pre_index;
 
 void dp(tIPC_ID dpQid);
 STATUS enq_pkt_in(tOFP_MBX *mail, q_t **head, int id);
@@ -42,6 +46,7 @@ void dp(tIPC_ID dpQid)
 	dp_io_fds_t		*dp_io_fds_head = NULL;
 	pthread_t 		dp_thread = 0;
 	uint32_t 		buffer_id, id = 1;
+	tDP_MSG 		*msg;
 
 	memset(flow, 0, sizeof(flow_t)*TABLE_SIZE);
 	for(;;) {
@@ -58,12 +63,27 @@ void dp(tIPC_ID dpQid)
 		switch(ipc_type){
 		case IPC_EV_TYPE_DRV:
 			/* recv pkts from dp */
-			mail = (tOFP_MBX*)mbuf.mtext;
+			//mail = (tOFP_MBX*)mbuf.mtext;
+			msg = (tDP_MSG *)(dp_buf + atomic_int32_add_after(*pre_index, 0));
+			//printf("msg = %x\n", msg);
+			*pre_index = atomic_int32_add_after(*pre_index, 1);
+			//printf("*pre_index = %d\n", *pre_index);
+			if (*pre_index >= PKT_BUF) {
+				//printf("*pre_index = %d\n", *pre_index);
+				atomic_int32_sub_after(*pre_index, 1);
+				//printf("*pre_index = %d\n", *pre_index);
+				sem_wait(sem);
+				*pre_index = 0;
+				sem_post(sem);
+			}
+			//atomic_int32_compare_swap(*pre_index, PKT_BUF, 0);
+			/*if (*pre_index == PKT_BUF)
+				(*pre_index) = 0;*/
+			
 			//PRINT_MESSAGE(((tDP_MSG *)(mail->refp))->buffer,(mail->len) - (sizeof(int) + sizeof(uint16_t)));
 			//ofp_ports[port].port = TEST_PORT_ID;
 			//DBG_OFP(DBGLVL1,&ofp_ports[0],"<-- Rx ofp message\n");
-			//printf("<%d send packet_in\n", __LINE__);
-			if ((ret = DP_decode_frame(mail, dp_io_fds_head, &buffer_id)) == ERROR)
+			if ((ret = DP_decode_frame(msg, dp_io_fds_head, &buffer_id)) == ERROR)
 				continue;
 			else if (ret == FALSE) {
 				if (buffer_id != OFP_NO_BUFFER) {
@@ -76,11 +96,11 @@ void dp(tIPC_ID dpQid)
 				}
 				else
 					id = OFP_NO_BUFFER;
-				tDP2OFP_MSG msg;
-				msg.id = id;
-				memcpy(msg.buffer, (U8 *)((tDP_MSG *)(mail->refp)), (mail->len));
+				tDP2OFP_MSG msg_2_ofp;
+				msg_2_ofp.id = id;
+				memcpy(msg_2_ofp.buffer, (U8 *)msg, (msg->len) + sizeof(tDP_MSG) - ETH_MTU);
 				//printf("<%d send packet_in\n", __LINE__);
-				dp_send2ofp((U8 *)&msg, (mail->len) + sizeof(int));
+				dp_send2ofp((U8 *)&msg_2_ofp, (msg->len)+ sizeof(tDP_MSG) - ETH_MTU + sizeof(int));
 				//printf("<%d send packet_in\n", __LINE__);
 				//puts("send to ofp");
 			}
@@ -100,9 +120,8 @@ void dp(tIPC_ID dpQid)
 				//PRINT_MESSAGE(flowmod_info.match_info,sizeof(pkt_info_t)*20);
 				//PRINT_MESSAGE(flowmod_info.action_info,sizeof(pkt_info_t)*20);
 				memcpy(&flowmod_info, mail->refp, sizeof(flowmod_info_t));
-				if (flowmod_match_process(flowmod_info, &flow_index) == TRUE) {
+				if (flowmod_match_process(flowmod_info, &flow_index) == TRUE)
 					flowmod_action_process(flowmod_info, flow_index);
-				}
 				
 				//printf("<%d at dp.c %d\n", __LINE__, flow[flow_index].is_exist);
 				
@@ -115,30 +134,23 @@ void dp(tIPC_ID dpQid)
 				memset(packet_out_info.action_info, 0, sizeof(pkt_info_t)*20);
 				memcpy(&packet_out_info, mail->refp, sizeof(packet_out_info_t));
 				//puts("recv pkt_out from ofp");
-				if (pkt_out_process(packet_out_info, dp_io_fds_head) == FALSE) {
+				if (pkt_out_process(packet_out_info, dp_io_fds_head) == FALSE)
 					puts("pkt_out processing exit unexpected.");
-				}
 			}
 			else if (*(mail->refp) == CLI) {
-				//printf("<%d\n", __LINE__);
 				cli_2_dp_t *cli_2_dp = (cli_2_dp_t *)(mail->refp);
 				switch(cli_2_dp->cli_2_ofp.opcode)
 				{
 					case ADD_IF:
 						DP_SOCK_INIT(cli_2_dp->cli_2_ofp.ifname, cli_2_dp->cli_2_ofp.port_id, &dp_io_fds_head);
 						//printf("dp_io_fds_head = %x\n", dp_io_fds_head);
-						if (dp_thread == 0) {
+						if (dp_thread == 0)
 							pthread_create(&dp_thread, NULL, (void *)sockd_dp, dp_io_fds_head);
-    					}
 						break;
 					case SHOW_FLOW:
-						//printf("<%d\n", __LINE__);
 						for(int i=0; i<TABLE_SIZE; i++) {
-							//printf("<%d %d\n", __LINE__, flow[i].is_exist);
 							if (flow[i].is_exist == FALSE)
 								continue;
-							//printf("<%d\n", __LINE__);
-							//TODO: dump the flow table
 							printf("flow %d: cookie=%lx, priority=%u, pkt count=%lu, match field: ", i, flow[i].cookie, flow[i].priority, flow[i].pkt_count);
 							void *cur;
 							uint16_t type;

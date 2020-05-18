@@ -130,7 +130,7 @@ void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	msg = (tDP2OFP_MSG *)(mail->refp);
 	//ofp_ports[0].sockfd = msg->sockfd;
 	mu = (U8 *)(((tDP_MSG *)(msg->buffer))->buffer);
-	mulen = (mail->len) - sizeof(int) - sizeof(uint16_t) - sizeof(int);
+	mulen = ((tDP_MSG *)(msg->buffer))->len;
 	//printf("mlen = %u\n", mulen);
 	//PRINT_MESSAGE(mu, mulen);
 	buffer_id = msg->id;

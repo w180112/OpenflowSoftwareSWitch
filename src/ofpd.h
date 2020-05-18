@@ -18,6 +18,7 @@
 #define MSG_LEN					4074
 #define JUMBO_MTU				9000
 #define TEST_PORT_ID			1
+#define PKT_BUF					1000
 
 #define	MIN_FRAME_SIZE			64
 #define	MAX_QUE_EVT_CNT			(MBOX_QUE_SIZE/2)

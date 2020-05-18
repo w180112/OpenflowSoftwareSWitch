@@ -69,15 +69,12 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 			return TRUE;
 		case PORT:
 			//send to port
-			//printf("flow port id = %u\n", ((port_t *)cur)->port_id);
 			if (((port_t *)cur)->port_id == OFPP_CONTROLLER) {
 				//printf("<%d at dp_flow.c\n", __LINE__);
 				return FALSE;
 			}
 			else {
-				//printf("<%d at dp_flow.c\n", __LINE__);
 				dp_drv_xmit(mu, mulen, ((port_t *)cur)->port_id, flow[flow_index].in_port, dp_io_fds_head);
-				//printf("<%d at dp_flow.c\n", __LINE__);
 				return TRUE;
 			}
 			type = ((port_t *)cur)->type;
@@ -102,13 +99,11 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 			((struct iphdr *)(((struct ethhdr *)mu) + 1))->daddr = htonl(((dst_ip_t *)cur)->dst_ip);
 			type = ((dst_ip_t *)cur)->type;
 			cur = (void *)(((dst_ip_t *)cur)->next);
-			//puts("modify IP");
 			break;
 		case SRC_IP:
 			((struct iphdr *)(((struct ethhdr *)mu) + 1))->saddr = htonl(((src_ip_t *)cur)->src_ip);
 			type = ((src_ip_t *)cur)->type;
 			cur = (void *)(((src_ip_t *)cur)->next);
-			//puts("modify IP");
 			break;
 		case IP_PROTO:
 			((struct iphdr *)(((struct ethhdr *)mu) + 1))->protocol = ((ip_proto_t *)cur)->ip_proto;
@@ -135,11 +130,15 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 uint16_t find_index(U8 *info, int len)
 {
 	uint8_t index = 0;
-	//PRINT_MESSAGE(info,len);
-	for(uint8_t i=0; i<len; i++) {
+	int limit = len - 2;
+
+	uint8_t i;
+	for(i=0; i<limit; i+=3) 
+	/* because load can be processed under pipeline, and load instruction takes 3 times time of add instruction */
+		index += *(info + i) + *(info + i + 1) + *(info + i + 2);
+	for(; i<len; i++)
 		index += *(info + i);
-		//printf("index = %u *(info + i) = %u\n", index, *(info + i));
-	}
+
 	index ^= *info;
 	index ^= *(info + 1);
 	return (uint16_t)index % TABLE_SIZE;

@@ -1,7 +1,7 @@
 # OpenFlow protocol software switch implementation
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Build Status](https://travis-ci.org/w180112/OpenflowSoftwaresWitch.svg?branch=master)](https://travis-ci.org/w180112/OpenflowSoftwaresWitch)
+[![Build Status](https://travis-ci.org/w180112/OpenflowSoftwareSWitch.svg?branch=master)](https://travis-ci.org/w180112/OpenflowSoftwareSWitch)
 
 This is a small OpenFlow protocol based software switch implementation in C.
 
@@ -15,11 +15,11 @@ This is a small OpenFlow protocol based software switch implementation in C.
 
 Git clone this repository
 
-	# git clone https://github.com/w180112/OpenflowSoftwaresWitch.git
+	# git clone https://github.com/w180112/OpenflowSoftwareSWitch.git
 
 Type
 
-	# cd OpenflowSoftwaresWitch
+	# cd OpenflowSoftwareSWitch
 
 Run
 
@@ -33,15 +33,15 @@ Then
 
 If OpenFlow connection is established, a simple console interface will show
 
-	Simple_OF_sw>
+	OSW>
 
 Try to type
 
-	Simple_OF_sw> addbr br0
+	OSW> addbr br0
 
 Then 
 
-	Simple_OF_sw> addif br0 <NIC interface name>
+	OSW> addif br0 <NIC interface name>
 
 If the prompt is missing, just press Enter.
 
@@ -56,7 +56,7 @@ To remove the binary files
 
 ## Test environment:
 
-1. CentOS 7.6 and AMD EPYC 7401P, 128GB ram server
+1. CentOS 7.6 and AMD EPYC 7401P, 256GB ram server
 2. Raspbain Feb. 2020 on RaspberryPi 4B v1.2
 3. Can connect to Ryu SDN controller with simple_switch_13.py application
 
@@ -65,3 +65,4 @@ To remove the binary files
 1. implementation Flowmod type - "delete flow" and flow timeout.
 2. del bridge/port and make bridge can be joined into socket operation
 3. change IPC method
+4. provide UIO

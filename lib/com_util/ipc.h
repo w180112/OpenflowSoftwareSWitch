@@ -81,6 +81,31 @@ extern STATUS	ipc_rcv(tIPC_ID, U8 *msg, int *mlen);
 extern STATUS 	ipc_rcv2(tIPC_ID, tMBUF*, int *mlen);
 extern STATUS 	ipc_sw(tIPC_ID, void *data, int size, int to);
 
+static inline int atomic_int32_add_after(int i, int cnt)
+{
+	return __sync_add_and_fetch(&i, cnt);
+}
+
+static inline int atomic_int32_add_before(int i, int cnt)
+{
+	return __sync_fetch_and_add(&i, cnt);
+}
+
+static inline int atomic_int32_sub_after(int i, int cnt)
+{
+	return __sync_sub_and_fetch(&i, cnt);
+}
+
+static inline int atomic_int32_sub_before(int i, int cnt)
+{
+	return __sync_fetch_and_sub(&i, cnt);
+}
+
+static inline BOOL atomic_int32_compare_swap(int a, int b, int newval)
+{
+	return __sync_bool_compare_and_swap(&a, b, newval);
+}
+
 #ifdef __cplusplus 
 }
 #endif

@@ -203,7 +203,7 @@ static int cmd_addif(int argc, char argv[4][64])
 
 	while (argc-- > 0) {
 		const char *ifname = *++argv;
-		err = br_add_interface(brname, ifname);
+		err = 0;//br_add_interface(brname, ifname);
 
 		switch(err) {
 		case 0:

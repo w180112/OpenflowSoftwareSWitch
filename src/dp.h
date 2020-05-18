@@ -16,6 +16,7 @@
 typedef struct {
 	uint32_t  		port_no;
 	int 			sockfd;
+	uint16_t		len;
 	char          	buffer[ETH_MTU];
 }tDP_MSG;
 
