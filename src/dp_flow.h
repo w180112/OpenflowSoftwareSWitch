@@ -114,7 +114,7 @@ typedef struct pkt_info {
 	uint8_t ip_proto;
 	uint16_t dst_port;
 	uint16_t src_port;
-	uint8_t mask[6];
+	uint64_t mask;
 	uint16_t max_len; /* for OFPCML_MAX or OFPCML_NO_BUFFER or 0 */
 	BOOL	is_tail;
 }pkt_info_t;
