@@ -619,3 +619,17 @@ STATUS BYTES_CMP(U8 *var1, U8 *var2, U32 len)
 	}
     return TRUE;
 }
+
+uint32_t hash_func(unsigned char *key, size_t len)
+{
+    uint32_t hash, i; 
+    for (hash = i = 0; i < len; ++i) {
+        hash += key[i];
+        hash += hash << 10;
+        hash ^= hash >> 6;
+    }
+    hash += hash << 3;
+    hash ^= hash >> 11;
+    hash += hash << 15;
+    return hash;
+}

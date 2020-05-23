@@ -27,6 +27,7 @@ extern int ethernet_interface(const char *const name, int *const index, int *con
 extern U16 	ADD_CARRY_FOR_CHKSUM(U32 sum);
 extern U16 	CHECK_SUM(U32);
 extern STATUS BYTES_CMP(U8 *var1, U8 *var2, U32 len);
+extern uint32_t hash_func(unsigned char *key, size_t len);
 
 #ifndef   UINT64_C
 #define   UINT64_C(value) __CONCAT(value,ULL)

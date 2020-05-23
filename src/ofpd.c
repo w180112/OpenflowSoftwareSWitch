@@ -40,6 +40,8 @@ extern void 		sockd_dp(dp_io_fds_t *dp_io_fds_head);
 extern void 		dp(tIPC_ID dpQid);
 extern void 		OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 extern STATUS 		OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb, uint32_t *port);
+extern void 		init_tables(void);
+extern void 		print_ofp_flow_table(void);
 
 pid_t ofp_cp_pid, ofp_dp_pid, dp_pid = 0, ofp_cmd_pid, tmr_pid;
 
@@ -128,7 +130,7 @@ int ofpdInit(char *of_ifname, char *ctrl_ip)
 		ofp_ports[i].state = S_CLOSED;
 		ofp_ports[i].port = i;
 	}
-	
+	init_tables();
 	sleep(1);
 	ofp_ports[0].enable = TRUE;
 	ofp_max_msg_per_query = MAX_OFP_QUERY_NUM;
@@ -255,7 +257,8 @@ int main(int argc, char **argv)
 					OFP_encode_port_status(mail, &ofp_ports[0], &(cli_2_ofp->port_id));
 					OFP_FSM(&ofp_ports[0], E_PORT_STATUS);
 				case SHOW_FLOW:
-					printf("<%d at ofpd\n", __LINE__);
+					//printf("<%d at ofpd\n", __LINE__);
+					print_ofp_flow_table();
 					memcpy(&cli_2_dp.cli_2_ofp, cli_2_ofp, sizeof(cli_2_ofp_t));
 					cli_2_dp.msg_type = CLI;
 					U16 mulen = sizeof(cli_2_dp_t);

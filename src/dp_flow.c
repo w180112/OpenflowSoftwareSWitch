@@ -719,12 +719,12 @@ STATUS print_field(void **cur, uint16_t *type)
 			*cur = (void *)(((ether_type_t *)(*cur))->next);
 			break;
 		case DST_IP:
-			printf("dst_ip = %u", ((dst_ip_t *)(*cur))->dst_ip);
+			printf("dst_ip = %u %u %u %u", ((((dst_ip_t *)(*cur))->dst_ip) >> 24) & 0xFF, ((((dst_ip_t *)(*cur))->dst_ip) >> 16) & 0xFF, ((((dst_ip_t *)(*cur))->dst_ip) >> 8) & 0xFF, (((dst_ip_t *)(*cur))->dst_ip) & 0xFF);
 			*type = ((dst_ip_t *)(*cur))->type;
 			*cur = (void *)(((dst_ip_t *)(*cur))->next);
 			break;
 		case SRC_IP:
-			printf("src_ip = %u", ((src_ip_t *)(*cur))->src_ip);
+			printf("src_ip = %u %u %u %u", ((((src_ip_t *)(*cur))->src_ip) >> 24) & 0xFF, ((((src_ip_t *)(*cur))->src_ip) >> 16) & 0xFF, ((((src_ip_t *)(*cur))->src_ip) >> 8) & 0xFF, (((src_ip_t *)(*cur))->src_ip) & 0xFF);
 			*type = ((src_ip_t *)(*cur))->type;
 			*cur = (void *)(((src_ip_t *)(*cur))->next);
 			break;
