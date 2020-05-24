@@ -4,6 +4,7 @@
 #include "ofp_flow.h"
 
 uint8_t zero[ETH_ALEN] = { 0 };
+extern tuple_table_t tuple_table[OFP_TABLE_SIZE];
 
 void print_in_port(table_in_port_t in_port)
 {
@@ -68,4 +69,16 @@ void print_action(action_info_t action)
         printf("out_port=");
     for(int i=0; i<MAX_OUT_PORT && action.out_port[i].port>0; i++)
         printf("%u, ", action.out_port[i].port);
+}
+
+void print_tuple(void)
+{
+    for(int i=0; i<OFP_TABLE_SIZE; i++) {
+        if (tuple_table[i].is_exist == FALSE)
+            continue;
+        printf("\nmatch bits: %u,%u,%u,%u\nflow index:", tuple_table[i].match_bits[0], tuple_table[i].match_bits[1], tuple_table[i].match_bits[2], tuple_table[i].match_bits[3]);
+        for(struct flow_entry_list *cur=tuple_table[i].list; cur!=NULL; cur=cur->next)
+            printf("%u, ", cur->entry_id);
+        puts("");
+    }
 }

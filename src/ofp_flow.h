@@ -71,7 +71,7 @@ typedef struct table_port {
 }table_port_t;
 
 struct flow_entry_list {
-    uint16_t entry_id;
+    uint32_t entry_id;
     struct flow_entry_list *next;
 };
 

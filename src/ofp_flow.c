@@ -21,10 +21,32 @@ tuple_table_t tuple_table[OFP_TABLE_SIZE];
 STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], uint16_t match_type)
 {
     uint32_t new_index;// = (tuple_mask[0] * 1000 + tuple_mask[1] * 100 + tuple_mask[2] * 10 + tuple_mask[3]) % OFP_FABLE_SIZE;
-    int32_t flow_index;
+    uint32_t flow_index;
 
-    
-    for(flow_index=0; flow_index<OFP_TABLE_SIZE&&flow_table[flow_index].table_flow_info.is_exist==TRUE; flow_index++);
+    uint32_t hash_index = 0;
+	uint16_t hash_type = 0;
+	for(int i=0; i<20&&flowmod_info.match_info[i].type>0; i++) {
+		//PRINT_MESSAGE(&(flowmod_info.match_info[i]),sizeof(pkt_info_t));
+		hash_index += hash_func((U8*)&(flowmod_info.match_info[i]), sizeof(pkt_info_t)-1);
+		hash_type |= flowmod_info.match_info[i].type;
+	}
+    //printf("hash id = %u hash type = %u\n", hash_index, hash_type);
+    for(flow_index=hash_index % OFP_TABLE_SIZE;; flow_index++) {
+        if (flow_index >= OFP_TABLE_SIZE)
+            flow_index -= OFP_TABLE_SIZE;
+        //printf("flow index = %u\n", flow_index);
+        if (hash_index - flow_index == 1)
+            return FALSE;
+        //printf("flow index = %u\n", flow_index);
+        if (flow_table[flow_index].table_flow_info.is_exist == TRUE) {
+			if (flow_table[flow_index].table_flow_info.hash_type == hash_type) 
+				return FALSE;
+            continue;
+		}
+        //printf("flow index = %u\n", flow_index);
+        break;
+    }
+
     flow_table[flow_index].table_flow_info.buffer_id = flowmod_info.buffer_id;
     flow_table[flow_index].table_flow_info.cookie = flowmod_info.cookie;
     flow_table[flow_index].table_flow_info.priority = flowmod_info.priority;
@@ -33,9 +55,13 @@ STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], ui
     flow_table[flow_index].table_flow_info.out_group = flowmod_info.out_group;
     flow_table[flow_index].table_flow_info.out_port = flowmod_info.out_port;
     flow_table[flow_index].table_flow_info.table_id = flowmod_info.table_id;
+    flow_table[flow_index].table_flow_info.hash_type = hash_type;
     flow_table[flow_index].table_flow_info.is_exist = TRUE;
     insert_flow_table(flowmod_info.match_info, flowmod_info.action_info, flow_index, tuple_mask, match_type);
-    for(uint32_t i=hash_func(tuple_mask, 4)%OFP_TABLE_SIZE; i<OFP_TABLE_SIZE; i++) {
+    hash_index = hash_func(tuple_mask, 4) % OFP_TABLE_SIZE;
+    for(uint32_t i=hash_index;; i++) {
+        if (i >= OFP_TABLE_SIZE)
+            i -= OFP_TABLE_SIZE;
         if (tuple_table[i].is_exist == FALSE) {
             new_index = i;
             tuple_table[new_index].is_exist = TRUE;
@@ -46,13 +72,15 @@ STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], ui
             new_index = i;
             break;
         }
+        if (hash_index - i == 1)
+            return FALSE;
     }
     struct flow_entry_list **cur;
-    for(cur=&(tuple_table[new_index].list); *cur!= NULL; cur=&(*cur)->next);
+    for(cur=&(tuple_table[new_index].list); *cur&&flow_table[flow_index].table_flow_info.priority<=flow_table[(*cur)->entry_id].table_flow_info.priority; cur=&(*cur)->next);
     struct flow_entry_list *new_node = (struct flow_entry_list *)malloc(sizeof(struct flow_entry_list));
-    *cur = new_node;
     new_node->entry_id = flow_index;
-    new_node->next = NULL;
+    new_node->next = *cur;
+    *cur = new_node;
 
     return TRUE;
 }
@@ -68,11 +96,13 @@ void insert_flow_table(pkt_info_t match_info[], pkt_info_t action_info[], uint32
     uint8_t in_port_amount = 0, out_port_amount = 0;
     //uint32_t pre_index = flow_index, next_index = 0;
 
-    for(int i=0; match_info[i].is_tail; i++) {
+    for(int i=0; i<20; i++) {
+        //printf("match_info[i].type = %u\n", match_info[i].type);
         switch (match_info[i].type) {
         case PORT:
-            if (flow_table[flow_index].table_in_port.is_exist == FALSE)
+            if (flow_table[flow_index].table_in_port.is_exist == FALSE) {
                 flow_table[flow_index].table_in_port.is_exist = TRUE;
+            }
             flow_table[flow_index].table_in_port.in_port[in_port_amount++] = match_info[i].port_id;
             break;
         case DST_MAC:
@@ -126,10 +156,12 @@ void insert_flow_table(pkt_info_t match_info[], pkt_info_t action_info[], uint32
         default:
             ;
         }
+        if (match_info[i].is_tail)
+            break;
     }
 
     flow_table[flow_index].action_info.is_exist = TRUE;
-    for(int i=0; action_info[i].is_tail; i++) {
+    for(int i=0; i<20; i++) {
         switch (action_info[i].type) {
         case PORT:
             flow_table[flow_index].action_info.out_port[out_port_amount++].port = action_info[i].port_id;
@@ -162,6 +194,8 @@ void insert_flow_table(pkt_info_t match_info[], pkt_info_t action_info[], uint32
         default:
             ;
         }
+        if (action_info[i].is_tail == TRUE)
+            break;
     }
 
 #if 0

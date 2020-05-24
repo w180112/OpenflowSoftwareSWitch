@@ -28,6 +28,7 @@ extern U16 	ADD_CARRY_FOR_CHKSUM(U32 sum);
 extern U16 	CHECK_SUM(U32);
 extern STATUS BYTES_CMP(U8 *var1, U8 *var2, U32 len);
 extern uint32_t hash_func(unsigned char *key, size_t len);
+extern int abs_int32(int *x);
 
 #ifndef   UINT64_C
 #define   UINT64_C(value) __CONCAT(value,ULL)

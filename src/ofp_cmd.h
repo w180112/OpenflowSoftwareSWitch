@@ -16,6 +16,7 @@ enum {
     ADD_IF,
     DEL_IF,
     SHOW_FLOW,
+    SHOW_TUPLE,
 };
 
 typedef struct cmd_list {

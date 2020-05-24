@@ -261,11 +261,14 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 		//printf("hash id = %u hash type = %u\n", hash_index, hash_type);
 	}
 	
-	for(uint32_t i=hash_index; i<TABLE_SIZE; i++) {
+	for(uint32_t i=hash_index;;) {
 		if (flowmod_info.command == OFPFC_ADD) {
+			if (i >= TABLE_SIZE)
+            	i -= TABLE_SIZE;
+        	if (hash_index - i == 1)
+            	return FALSE;
 			if (flow[i].is_exist == TRUE) {
 				if (flow[i].hash_type == hash_type) 
-					//TODO: change DST mac and SRC mac should not be treated as same flow
 					return FALSE;
 				else {
 					if (i >= (TABLE_SIZE - 1))
@@ -483,6 +486,7 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 					break;
 				}
 			}
+			i++;
 		}
 	}
 	return FALSE;

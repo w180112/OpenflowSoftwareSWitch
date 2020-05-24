@@ -42,6 +42,7 @@ extern void 		OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 extern STATUS 		OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb, uint32_t *port);
 extern void 		init_tables(void);
 extern void 		print_ofp_flow_table(void);
+extern void 		print_tuple(void);
 
 pid_t ofp_cp_pid, ofp_dp_pid, dp_pid = 0, ofp_cmd_pid, tmr_pid;
 
@@ -259,6 +260,7 @@ int main(int argc, char **argv)
 				case SHOW_FLOW:
 					//printf("<%d at ofpd\n", __LINE__);
 					print_ofp_flow_table();
+					print_tuple();
 					memcpy(&cli_2_dp.cli_2_ofp, cli_2_ofp, sizeof(cli_2_ofp_t));
 					cli_2_dp.msg_type = CLI;
 					U16 mulen = sizeof(cli_2_dp_t);
@@ -282,6 +284,9 @@ int main(int argc, char **argv)
 					mail_2_msgq.type = IPC_EV_TYPE_OFP;
 					printf("send cli msg to dp\n");
 					ipc_sw(dpQid, &mail_2_msgq, sizeof(mail_2_msgq), -1);
+					break;
+				case SHOW_TUPLE:
+					print_tuple();
 					break;
 				default:
 					;

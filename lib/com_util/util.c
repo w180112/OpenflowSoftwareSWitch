@@ -633,3 +633,9 @@ uint32_t hash_func(unsigned char *key, size_t len)
     hash += hash << 15;
     return hash;
 }
+
+int abs_int32(int *x)
+{
+    // x < 0 ? -x : x;
+    return (*x ^ (*x >> 31)) - (*x >> 31);
+}

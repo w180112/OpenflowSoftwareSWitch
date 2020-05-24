@@ -1,7 +1,7 @@
 # OpenFlow protocol software switch implementation
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Build Status](https://travis-ci.org/w180112/OpenflowSoftwareSWitch.svg?branch=master)](https://travis-ci.org/w180112/OpenflowSoftwareSWitch)
+[![Build Status](https://travis-ci.org/w180112/OpenflowSoftwareSWitch.svg?branch=tss)](https://travis-ci.org/w180112/OpenflowSoftwareSWitch)
 
 This is a small OpenFlow protocol based software switch implementation in C.
 
