@@ -10,6 +10,8 @@
 extern "C" {
 #endif   
 
+#include "ofpd.h"
+
 #define CP_FD 0
 #define DP_FD 1
 
@@ -19,9 +21,7 @@ extern "C" {
 
 extern void           drv_xmit(U8 *mu, U16 mulen, int fd_id);
 extern int 						OFP_SOCK_INIT(char *if_name, char *ctrl_ip);
-extern void 					ofp_sockd_cp();
-extern void 					ofp_sockd_dp();
-extern STATUS 			  ofp_send2mailbox(U8 *mu, int mulen);
+extern void 					ofp_sockd_cp(tOFP_PORT *port_ccb);
 
 #ifdef __cplusplus
 }

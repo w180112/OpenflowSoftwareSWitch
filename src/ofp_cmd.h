@@ -10,6 +10,8 @@
 extern "C" {
 #endif
 
+#include "ofp_sock.h"
+
 enum {
     ADD_BR = 0,
     DEL_BR,
@@ -28,8 +30,8 @@ typedef struct cmd_list {
 
 typedef struct cli_2_ofp {
     uint8_t opcode;
-    char brname[64];
-    char ifname[64];
+    char brname[16];
+    char ifname[16];
     uint32_t port_id;
     char msg[256];
 }cli_2_ofp_t;
@@ -40,7 +42,6 @@ typedef struct cli_2_dp {
 }cli_2_dp_t;
 
 extern void 			ofp_cmd(void);
-extern STATUS 			ofp_send2mailbox(U8 *mu, int mulen);
 
 #ifdef __cplusplus
 }

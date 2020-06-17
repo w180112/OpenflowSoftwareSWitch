@@ -6,13 +6,10 @@
 #ifndef _DP_FLOW_H_
 #define _DP_FLOW_H_
 
-#include <linux/if_ether.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
-#include <linux/udp.h>
-#include <linux/in.h>
 #include <stdint.h>
 #include "dp.h"
+#include "dp_codec.h"
+#include <common.h>
 
 enum {
 	PORT = 1 << 0,

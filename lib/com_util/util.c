@@ -300,7 +300,7 @@ int get_local_mac(U8 *mac, char *sif)
        return -1;
     }
     
-    strncpy(sifreq.ifr_name, sif, IF_NAMESIZE);
+    strncpy(sifreq.ifr_name, sif, IF_NAMESIZE-1);
     if (ioctl(fd, SIOCGIFHWADDR, &sifreq) != 0){
         printf("error! ioctl failed when getting mac\n");
         close(fd);
@@ -330,7 +330,7 @@ int get_local_ip(U8 *ip_str, char *sif)
         return -1;
     }
     
-    strncpy(ifr.ifr_name, sif, IF_NAMESIZE);    
+    strncpy(ifr.ifr_name, sif, IF_NAMESIZE-1);    
     if (ioctl(fd, SIOCGIFADDR, &ifr) < 0) {
         perror("ioctl SIOCGIFADDR error");
         return -1;
@@ -366,7 +366,7 @@ int set_local_ip(char *ip_str, char *sif)
     bzero(&mask,sizeof(mask));  
  
     //sprintf(ifr.ifr_name, sif); 
-    strncpy(ifr.ifr_name, sif, IF_NAMESIZE);  
+    strncpy(ifr.ifr_name, sif, IF_NAMESIZE-1);  
     addr.sin_family = AF_INET; 
     addr.sin_addr.s_addr = inet_addr(ip_str); 
     //printf("addr.sin_addr.s_addr=%x\n",addr.sin_addr.s_addr); 
@@ -422,7 +422,7 @@ int ethernet_interface(const char *const name, int *const index, int *const spee
         return errno = err;
     }
 
-    strncpy(ifr.ifr_name, name, sizeof ifr.ifr_name);
+    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name)-1);
     ifr.ifr_data = (void *)&cmd;
     cmd.cmd = ETHTOOL_GSET;
     if (ioctl(fd, SIOCETHTOOL, &ifr) < 0) {

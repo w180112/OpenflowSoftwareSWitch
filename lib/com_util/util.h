@@ -34,41 +34,6 @@ extern int abs_int32(int *x);
 #define   UINT64_C(value) __CONCAT(value,ULL)
 #endif
 
-#define RTE_STATIC_BSWAP64(v) \
-	((((uint64_t)(v) & UINT64_C(0x00000000000000ff)) << 56) | \
-	 (((uint64_t)(v) & UINT64_C(0x000000000000ff00)) << 40) | \
-	 (((uint64_t)(v) & UINT64_C(0x0000000000ff0000)) << 24) | \
-	 (((uint64_t)(v) & UINT64_C(0x00000000ff000000)) <<  8) | \
-	 (((uint64_t)(v) & UINT64_C(0x000000ff00000000)) >>  8) | \
-	 (((uint64_t)(v) & UINT64_C(0x0000ff0000000000)) >> 24) | \
-	 (((uint64_t)(v) & UINT64_C(0x00ff000000000000)) >> 40) | \
-	 (((uint64_t)(v) & UINT64_C(0xff00000000000000)) >> 56))
-
-static inline uint64_t rte_constant_bswap64(uint64_t x)
-{
-	return (uint64_t)RTE_STATIC_BSWAP64(x);
-}
-
-#ifdef __x86_64__
-
-static inline uint64_t rte_arch_bswap64(uint64_t _x)
-{
-	  uint64_t x = _x;
-	  __asm__ volatile ("bswap %[x]"
-		        : [x] "+r" (x)
-		        );
-	  return x;
-}
-
-#define bitswap64(x) ((uint64_t)(__builtin_constant_p(x) ?		\
-				   rte_constant_bswap64(x) :		\
-				   rte_arch_bswap64(x)))
-#else
-
-#define bitswap64(x) ((uint64_t)(rte_constant_bswap64(x)))
-
-#endif
-
 #ifdef __cplusplus
 }
 #endif

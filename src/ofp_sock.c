@@ -8,6 +8,9 @@
 #include		<sys/socket.h>
 #include 		<sys/types.h> 
 #include 		<netinet/in.h>
+#include 		<rte_memcpy.h>
+#include 		"dp_sock.h"
+#include 		"mailbox.h"
 
 #if 0 //use with splice()
 #include <stdlib.h>
@@ -28,6 +31,9 @@ int				ofpSockSize = sizeof(struct sockaddr_in);
 int				ofp_io_fds[2];
 fd_set			ofp_io_ready[2];
 
+void 			ofp_sockd_cp(tOFP_PORT *port_ccb);
+void 			ofp_sockd_dp(void);
+
 /**************************************************************************
  * OFP_SOCK_INIT :
  *
@@ -44,7 +50,7 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
 		{ 0x28, 0, 0, 0x0000000c },
 		{ 0x15, 0, 10, 0x00000800 },
 		{ 0x20, 0, 0, 0x0000001e },
-		{ 0x15, 0, 8, 0xc0a80a8a },
+		{ 0x15, 0, 8, 0xc0a80a9d },
 		{ 0x30, 0, 0, 0x00000017 },
 		{ 0x15, 0, 6, 0x00000011 },
 		{ 0x28, 0, 0, 0x00000014 },
@@ -60,7 +66,7 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
 	    printf("socket");
 	    return -1;
 	}
-	
+#if 0	
 	Filter.len = sizeof(BPF_code)/sizeof(struct sock_filter);
 	Filter.filter = BPF_code;
 	if ((ofp_io_fds[1]=socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP))) < 0) {
@@ -73,7 +79,7 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
 
 	FD_ZERO(&ofp_io_ready[1]);
     FD_SET(ofp_io_fds[1],&ofp_io_ready[1]);
-    
+#endif    
 	bzero(&sock_info[0], sizeof(sock_info[0]));
     sock_info[0].sin_family = PF_INET;
     sock_info[0].sin_addr.s_addr = inet_addr(ctrl_ip);
@@ -91,7 +97,7 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
     local_sock_info[0].sin_family = PF_INET;
     local_sock_info[0].sin_addr.s_addr = inet_addr(inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
     local_sock_info[0].sin_port = htons(6654);
-
+#if 0
 	/* Set the network card in promiscuous mode */
   	strncpy(ethreq.ifr_name,if_name,IFNAMSIZ-1);
   	if (ioctl(ofp_io_fds[1], SIOCGIFFLAGS, &ethreq)==-1) {
@@ -113,14 +119,14 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
     	close(ofp_io_fds[1]);
     	return -1;
   	}
-
+#endif
 	bind(ofp_io_fds[0],(struct sockaddr *)&local_sock_info[0],sizeof(local_sock_info[0]));
     int err = connect(ofp_io_fds[0],(struct sockaddr *)&sock_info,sizeof(sock_info));
     if (err == -1) {
         perror("Connection error.");
 		return err;
     }
-
+#if 0
 	 //--------------- configure TX ------------------
 	memset(&sll, 0, sizeof(sll));
 	sll.sll_family = PF_PACKET;
@@ -131,7 +137,7 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
 	sll.sll_ifindex = ethreq.ifr_ifindex;
 	
 	printf("ifindex=%d\n",sll.sll_ifindex);
-
+#endif
 	return 0;
 }
 
@@ -140,11 +146,14 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
  *
  * iov structure will provide the memory, so parameter pBuf doesn't need to care it.
  **************************************************************************/
-void ofp_sockd_cp(void)
+void ofp_sockd_cp(tOFP_PORT *port_ccb)
 {
 	int			n,rxlen;
 	tOFP_MSG 	msg;
-		
+	tOFP_MBX	mail;
+	
+	while (rte_atomic16_read(&(port_ccb->cp_enable)) == 0)
+		rte_pause();
 	/* 
 	** to.tv_sec = 1;  ie. non-blocking; "select" will return immediately; =polling 
     ** to.tv_usec = 0; ie. blocking
@@ -189,15 +198,19 @@ void ofp_sockd_cp(void)
 			PRINT_MESSAGE((char*)msg.buffer, rxlen);*/
 			if (rxlen <= 0) {
       			printf("Error! recv(): len <= 0 at CP\n");
+				perror("recv failed:");
 				msg.sockfd = 0;
 				msg.type = DRIV_FAIL;
-				ofp_send2mailbox((U8*)&msg, sizeof(int)+1);
+				mail.len = sizeof(int)+1;
     		}
 			else {
     			msg.sockfd = ofp_io_fds[0];
 				msg.type = DRIV_CP;
-				ofp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+1);
+				mail.len = rxlen + sizeof(int) + 1;
 			}
+			mail.type = IPC_EV_TYPE_DRV;
+			rte_memcpy(mail.refp, &msg, mail.len);
+			mailbox(any2ofp, (U8 *)&mail, 1);
    			/*printf("=========================================================\n");
 			printf("rxlen=%d\n",rxlen);*/
     		//PRINT_MESSAGE((char*)msg.buffer, rxlen);
@@ -215,7 +228,7 @@ void ofp_sockd_dp(void)
 {
 	int			n, rxlen;
 	tOFP_MSG 	msg;
-		
+#if 0	
 	for(;;) {
 		if ((n = select(ofp_io_fds[1]+1,&ofp_io_ready[1],(fd_set*)0,(fd_set*)0,NULL/*&to*/)) < 0) {
    		    /* if "to" = NULL, then "select" will block indefinite */
@@ -239,6 +252,7 @@ void ofp_sockd_dp(void)
     		ofp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+1);
    		} /* if select */
 	}
+#endif
 }
 
 /**************************************************************
@@ -251,40 +265,4 @@ void drv_xmit(U8 *mu, U16 mulen, int sockfd)
 	//printf("\ndrv_xmit ............\n");
 	//PRINT_MESSAGE((unsigned char*)mu, mulen);
 	send(sockfd, mu, mulen, 0);
-}
-
-/*********************************************************
- * ofp_send2mailbox:
- *
- * Input  : mu - incoming ethernet+igmp message unit
- *          mulen - mu length
- *          port - 0's based
- *          sid - need tag ? (Y/N)
- *          prior - if sid=1, then need set this field
- *          vlan - if sid=1, then need set this field
- *
- * return : TRUE or ERROR(-1)
- *********************************************************/
-STATUS ofp_send2mailbox(U8 *mu, int mulen)
-{
-	tOFP_MBX mail;
-
-    if (ofpQid == -1) {
-		if ((ofpQid=msgget(OFP_Q_KEY,0600|IPC_CREAT)) < 0) {
-			printf("send> Oops! ofpQ(key=0x%x) not found\n",OFP_Q_KEY);
-   	 	}
-	}
-	
-	if (mulen > sizeof(tOFP_MSG)) {
-	 	printf("Incoming frame length(%d) is too large at ofp_sock.c!\n",mulen);
-		return ERROR;
-	}
-
-	mail.len = mulen;
-	memcpy(mail.refp,mu,mulen); /* mail content will be copied into mail queue */
-	
-	//printf("ofp_send2mailbox(ofp_sock.c %d): mulen=%d\n",__LINE__,mulen);
-	mail.type = IPC_EV_TYPE_DRV;
-	ipc_sw(ofpQid, &mail, sizeof(mail), -1);
-	return TRUE;
 }

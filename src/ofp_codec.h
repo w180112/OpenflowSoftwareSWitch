@@ -27,6 +27,5 @@ typedef U16  *(*DEC_FUNCPTR)(U8*, tOFP_TLV*);
 typedef U16  *(*ENC_FUNCPTR)(tOFP_TLV*, U8*);
  
 extern  STATUS	OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb);
-extern  void 	DECODE_OBJID(U8 *vp, U8 vlen, U32 *oids, U8 *oids_len);
 
 #endif

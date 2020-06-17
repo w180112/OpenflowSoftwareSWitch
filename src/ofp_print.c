@@ -3,6 +3,13 @@
 #include <common.h>
 #include "ofp_flow.h"
 
+void print_in_port(table_in_port_t in_port);
+void print_mac(table_mac_t mac);
+void print_ip(table_ip_t ip);
+void print_port(table_port_t port);
+void print_action(action_info_t action);
+void print_tuple(void);
+
 uint8_t zero[ETH_ALEN] = { 0 };
 extern tuple_table_t tuple_table[OFP_TABLE_SIZE];
 

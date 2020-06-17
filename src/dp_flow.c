@@ -17,6 +17,9 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_t *type);
 STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
+STATUS find_flow(U8* mu, U16 mulen, uint32_t port_id, uint32_t *flow_index);
+uint16_t find_index(U8 *info, int len);
+STATUS print_field(void **cur, uint16_t *type);
 
 STATUS find_flow(U8* mu, U16 mulen, uint32_t port_id, uint32_t *flow_index)
 {
@@ -144,7 +147,7 @@ uint16_t find_index(U8 *info, int len)
 	return (uint16_t)index % TABLE_SIZE;
 }
 
-STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_t *type)
+STATUS flow_type_cmp(U8 *mu, __attribute__((unused)) U16 mulen, uint32_t in_port_id, void **cur, uint16_t *type)
 {
 	uint32_t src_ip, dst_ip;
 	uint16_t src_port, dst_port, ether_type;
@@ -220,7 +223,7 @@ STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_
 			*cur = (void *)(((ip_proto_t *)(*cur))->next);
 			break;
 		case DST_PORT:
-			if (((struct ethhdr *)mu)->h_proto != htons(IP_PROTO) || ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_TCP || ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_UDP)
+			if (((struct ethhdr *)mu)->h_proto != htons(IP_PROTO) || (((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_TCP && ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_UDP))
 				return FALSE;
 			dst_port = ntohs(*(uint16_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1));
 			if (BYTES_CMP((U8 *)&dst_port,(U8 *)&(((dst_port_t *)(*cur))->dst_port),2) == FALSE)
@@ -231,7 +234,7 @@ STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_
 			*cur = (void *)(((dst_port_t *)(*cur))->next);
 			break;
 		case SRC_PORT:
-			if (((struct ethhdr *)mu)->h_proto != htons(IP_PROTO) || ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_TCP || ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_UDP)
+			if (((struct ethhdr *)mu)->h_proto != htons(IP_PROTO) || (((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_TCP && ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_UDP))
 				return FALSE;
 			src_port = ntohs(*(((uint16_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1)) + 1));
 			if (BYTES_CMP((U8 *)&src_port,(U8 *)&(((src_port_t *)(*cur))->src_port),2) == FALSE)

@@ -10,10 +10,15 @@
 #include 		<netinet/in.h>
 #include 		<sys/epoll.h>
 #include 		<fcntl.h>
+#include 		<rte_memcpy.h>
+#include 		<rte_atomic.h>
+#include 		<rte_mbuf.h>
+#include 		<rte_ethdev.h>
+#include 		<rte_ether.h>
+
 #include        "ofp_sock.h"
 #include 		"dp_sock.h"
 #include		"dp.h"
-#include 		"ofpd.h"
 
 fd_set						dp_io_ready;
 struct ifreq				ethreq;
@@ -25,6 +30,13 @@ int 						max_fd;
 extern sem_t 				*sem;
 extern tDP_MSG 				*dp_buf;
 extern int					*post_index, *pre_index;
+extern tOFP_PORT			ofp_ports[MAX_USER_PORT_NUM+1]; 
+
+#define BURST_SIZE 32
+rte_atomic16_t				any2dp_cums;
+int16_t						any2dp_prod;
+
+void dp_drv_xmit(U8 *mu, U16 mulen, uint32_t port_id, uint32_t in_port, dp_io_fds_t *dp_io_fds_head);
 
 /**************************************************************************
  * DP_SOCK_INIT :
@@ -132,7 +144,7 @@ int DP_SOCK_INIT(char *ifname, uint32_t port_id, dp_io_fds_t **dp_io_fds_head)
 	for(cur_io_fd=dp_io_fds_head; *cur_io_fd!=NULL; cur_io_fd=&(*cur_io_fd)->next);
 	dp_io_fds_t *new_node = (dp_io_fds_t *)malloc(sizeof(dp_io_fds_t));
 	new_node->fd = fd;
-	strncpy(new_node->ifname,ifname,strlen(ifname));
+	strncpy(new_node->ifname, ifname, IFNAMSIZ-1);
 	new_node->port_no = port_id;
 	new_node->next = *cur_io_fd;
 	new_node->pkt_count = 0;
@@ -150,7 +162,7 @@ int DP_SOCK_INIT(char *ifname, uint32_t port_id, dp_io_fds_t **dp_io_fds_head)
  *
  * iov structure will provide the memory, so parameter pBuf doesn't need to care it.
  **************************************************************************/
-void sockd_dp(dp_io_fds_t *dp_io_fds_head)
+void sockd_dp(__attribute__((unused)) dp_io_fds_t *dp_io_fds_head)
 {
 	int			n, rxlen;
 	tDP_MSG 	*msg;
@@ -212,7 +224,7 @@ void sockd_dp(dp_io_fds_t *dp_io_fds_head)
 		
     }
 	#endif
-	#if 1
+	#if 0
 	for(;;) {    
 		if ((n = select(max_fd+1,&dp_io_ready,(fd_set*)0,(fd_set*)0,NULL/*&to*/)) < 0){
    		    /* if "to" = NULL, then "select" will block indefinite */
@@ -229,7 +241,7 @@ void sockd_dp(dp_io_fds_t *dp_io_fds_head)
 				if (!((*post_index+1) ^ atomic_int32_add_after(*pre_index, 0))) {
 					break;
 				}
-				msg = dp_buf + *post_index;
+				msg = /*dp_buf +*/ *post_index;
 				//printf("msg = %x at dp_sock.c\n", msg);
     			rxlen = recvfrom(cur_io_fd->fd,msg->buffer,ETH_MTU,0,NULL,NULL);
     			if (rxlen <= 0) {
@@ -323,4 +335,107 @@ STATUS dp_send2mailbox(U8 *mu, int mulen)
 	mail.type = IPC_EV_TYPE_DRV;
 	ipc_sw(dpQid, &mail, sizeof(mail), -1);
 	return TRUE;
+}
+
+int dp_rx(uint16_t *port_id)
+{
+	struct rte_mbuf 	*pkt[BURST_SIZE];
+	uint16_t 			nb_rx;
+	struct rte_ether_hdr *eth_hdr;
+	char 				str[20];
+	snprintf(str,sizeof(str),"%s%u","any2dp_mail_",*port_id);
+	tDP_MSG 			*msg;
+	tOFP_MBX			*any2dp_mail = (tOFP_MBX *)rte_mempool_create(str, BURST_SIZE, sizeof(tOFP_MBX), 20, 0, NULL, NULL, NULL, NULL, rte_socket_id(), 0);
+	int 				i;
+	char 				*cur;
+
+	while (rte_atomic16_read(&(ofp_ports[0].dp_enable)) == 0)
+		rte_pause();
+	
+	if (any2dp_mail == NULL)
+		rte_exit(EXIT_FAILURE, "Cannot create mbuf pool at dp_rx, %s\n", rte_strerror(rte_errno));
+	for(;;) {
+		nb_rx = rte_eth_rx_burst(*port_id, 0, pkt, BURST_SIZE);
+		if (nb_rx == 0)
+			continue;
+		//printf("<%d recv %u bytes\n", __LINE__, nb_rx);
+		for(i=0; i<nb_rx; i++) {
+			rte_prefetch0(rte_pktmbuf_mtod(pkt[i], void *));
+			eth_hdr = rte_pktmbuf_mtod(pkt[i], struct rte_ether_hdr*);
+			if (rte_atomic16_read(&any2dp_cums) != ((any2dp_prod + 1) % BURST_SIZE)) {
+				msg = (tDP_MSG *)((any2dp_mail+any2dp_prod)->refp);
+				msg->qid = 0;
+				msg->port_no = *port_id;
+				msg->len = pkt[i]->data_len;
+				rte_memcpy(msg->buffer, eth_hdr, pkt[i]->data_len);
+				(any2dp_mail + any2dp_prod)->type = IPC_EV_TYPE_DRV;
+				(any2dp_mail + any2dp_prod)->len = pkt[i]->data_len;
+				//enqueue eth_hdr pkt[i]->data_len
+				cur = (char *)(any2dp_mail + any2dp_prod);
+				rte_ring_enqueue_burst(any2dp,(void **)&cur,1,NULL);
+				any2dp_prod++;
+				if (any2dp_prod >= BURST_SIZE)
+					any2dp_prod = 0;
+			}
+			//printf("<%d\n", __LINE__);
+		}
+		/*for(i=0; i<nb_rx; i++) {
+			printf("<%d\n", __LINE__);
+			rte_pktmbuf_free(pkt[i]);
+			printf("<%d\n", __LINE__);
+		}*/
+	}
+	return 0;
+}
+
+int dp_tx(uint16_t *port_id)
+{
+	int 		burst_size, ret;
+	tOFP_MBX 	*dp2tx_mail[BURST_SIZE];// = (tOFP_MBX *)rte_mempool_create("dp2tx_mail", BURST_SIZE, sizeof(tOFP_MBX), 512, 0, NULL, NULL, NULL, NULL, rte_socket_id(), 0);
+	struct rte_mbuf *pkt[BURST_SIZE];
+	char *buf;
+	
+	ret = rte_pktmbuf_alloc_bulk(mbuf_pool, pkt, BURST_SIZE);
+	if (ret != 0)
+		rte_exit(EXIT_FAILURE, "Cannot alloc mbuf from mbufpool, %s\n", rte_strerror(rte_errno));
+	for(;;) {
+		burst_size = rte_ring_dequeue_burst(dp2tx, (void **)dp2tx_mail, BURST_SIZE, NULL);
+		if (unlikely(burst_size == 0))
+			continue;
+		for(int i=0;i<burst_size;i++) {
+			//pkt[i] = rte_pktmbuf_alloc(mbuf_pool);
+			buf = rte_pktmbuf_mtod(pkt[i],char *);
+			rte_memcpy(buf, dp2tx_mail[i]->refp, dp2tx_mail[i]->len);
+			pkt[i]->data_len = dp2tx_mail[i]->len;
+			pkt[i]->pkt_len = dp2tx_mail[i]->len;
+		}
+		uint16_t nb_tx = rte_eth_tx_burst(*port_id, 0, pkt, burst_size);
+		if (unlikely(nb_tx < burst_size)) {
+			for(uint16_t buf=nb_tx; buf<burst_size; buf++)
+				rte_pktmbuf_free(pkt[buf]);
+		}
+		//printf("%u pkts sent\n", nb_tx);
+	}
+	return 0;
+}
+
+int msg_dequeue(struct rte_ring *ring, tOFP_MBX **mail)
+{
+	uint16_t burst_size;
+	//char *buf = malloc(5);
+	for(;;) {
+		//single_pkt = rte_pktmbuf_alloc(mbuf_pool);
+		burst_size = rte_ring_dequeue_burst(ring, (void **)mail, BURST_SIZE, NULL);
+		//printf("<%d\n", __LINE__);
+		if (likely(burst_size == 0)) {
+			//rte_pktmbuf_free(single_pkt);
+			continue;
+		}
+		//printf("mail->type = %u, len = %d\n", mail[0]->type, mail[0]->len);
+		//printf("recv %u ring msg\n", burst_size);
+		break;
+		//puts(buf);
+		//rte_pktmbuf_free(single_pkt);
+	}
+	return burst_size;
 }

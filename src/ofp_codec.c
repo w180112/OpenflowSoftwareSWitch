@@ -17,11 +17,14 @@
 #include		"dp.h"
 #include 		<unistd.h>
 #include 		<signal.h>
+#include		<rte_byteorder.h>
+#include 		<rte_memcpy.h>
 
 void 			OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
 STATUS 			OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen, uint8_t tuple_mask[], uint16_t *match_type);
 STATUS 			OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
 STATUS 			OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
+STATUS 			OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb, uint32_t *port);
 extern STATUS 	add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], uint16_t match_type);
 
 extern pid_t ofp_cp_pid;
@@ -51,12 +54,14 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	uint16_t 	match_type = 0;
 
 	msg = (tOFP_MSG *)(mail->refp);
+	//PRINT_MESSAGE(msg,13);
+	//printf("mail->type = %u, len = %d\n", mail->type, mail->len);
 	port_ccb->sockfd = msg->sockfd;
 	mu = (U8 *)(msg->buffer);
 	mulen = (mail->len) - (sizeof(int) + 1);
 	
 	if (mulen > ETH_MTU) {
-	    DBG_OFP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
+	    DBG_OFP(DBGLVL1,0,"error! too large frame(%d)\n",mulen);
 	    return ERROR;
 	}
 
@@ -95,7 +100,7 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 		case OFPT_FLOW_MOD:
 			port_ccb->event = E_FLOW_MOD;
 			//PRINT_MESSAGE(tmp_buf+ofp_len, mulen);
-			//printf("----------------------------------\nrecv flow mod\n");
+			printf("----------------------------------\nrecv flow mod\n");
 			OFP_decode_flowmod(port_ccb, tmp_buf+ofp_len, ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length), tuple_mask, &match_type);
 			add_huge_flow_table(port_ccb->flowmod_info, tuple_mask, match_type);
 			//printf("<%d at ofp_codec.c\n", __LINE__);
@@ -128,10 +133,10 @@ void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 {
 	U16			mulen;
 	U8			*mu;
-	tDP2OFP_MSG *msg;
+	tany2ofp_MSG *msg;
 	int 		buffer_id;
 
-	msg = (tDP2OFP_MSG *)(mail->refp);
+	msg = (tany2ofp_MSG *)(mail->refp);
 	//ofp_ports[0].sockfd = msg->sockfd;
 	mu = (U8 *)(((tDP_MSG *)(msg->buffer))->buffer);
 	mulen = ((tDP_MSG *)(msg->buffer))->len;
@@ -190,7 +195,8 @@ STATUS OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb, uint32_t *por
 
     	fd = socket(AF_INET, SOCK_DGRAM, 0);
  		ifr.ifr_addr.sa_family = AF_INET;
-    	strncpy(ifr.ifr_name,cli_2_ofp->ifname,IFNAMSIZ-1);
+    	rte_memcpy(ifr.ifr_name,cli_2_ofp->ifname,IFNAMSIZ-1);
+		ifr.ifr_name[IFNAMSIZ-1] = '\0';
 		
  		ioctl(fd,SIOCGIFHWADDR,&ifr);
     	close(fd);
@@ -260,7 +266,7 @@ STATUS OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb, uint32_t *por
 	return TRUE;
 }
 
-STATUS OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) 
+STATUS OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, __attribute__((unused)) U16 mulen) 
 {
 	ofp_multipart_t *ofp_multipart = (ofp_multipart_t *)(port_ccb->ofpbuf);
 	U8 *ofpbuf_ptr = port_ccb->ofpbuf;
@@ -289,7 +295,7 @@ STATUS OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	return TRUE;
 }
 
-STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen, uint8_t tuple_mask[], uint16_t *match_type) 
+STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, __attribute__((unused)) U16 mulen, uint8_t tuple_mask[], uint16_t *match_type) 
 {
 	ofp_instruction_actions_t *ofp_instruction_actions;
 	uint16_t left_len;
@@ -299,7 +305,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen, uint8_t tuple_
 	port_ccb->flowmod_info.msg_len = sizeof(flowmod_info_t);
 	port_ccb->flowmod_info.buffer_id = ntohl(((ofp_flow_mod_t *)mu)->buffer_id); 
 	port_ccb->flowmod_info.command = ((ofp_flow_mod_t *)mu)->command;
-	port_ccb->flowmod_info.cookie = bitswap64(((ofp_flow_mod_t *)mu)->cookie);
+	port_ccb->flowmod_info.cookie = rte_cpu_to_be_64(((ofp_flow_mod_t *)mu)->cookie);
 	port_ccb->flowmod_info.hard_timeout = ntohs(((ofp_flow_mod_t *)mu)->hard_timeout);
 	port_ccb->flowmod_info.idle_timeout = ntohs(((ofp_flow_mod_t *)mu)->idle_timeout);
 	port_ccb->flowmod_info.out_group = ntohl(((ofp_flow_mod_t *)mu)->out_group);

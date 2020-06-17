@@ -17,6 +17,9 @@ void insert_flow_table(pkt_info_t match_info[], pkt_info_t action_info[], uint32
 
 flow_table_t flow_table[OFP_TABLE_SIZE];
 tuple_table_t tuple_table[OFP_TABLE_SIZE];
+STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], uint16_t match_type);
+void init_tables(void);
+void print_ofp_flow_table(void);
 
 STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], uint16_t match_type)
 {
@@ -85,12 +88,13 @@ STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], ui
     return TRUE;
 }
 
-void init_tables(void) {
+void init_tables(void) 
+{
     memset(flow_table, 0, OFP_TABLE_SIZE * sizeof(flow_table_t));
     memset(tuple_table, 0, sizeof(tuple_table_t) * OFP_TABLE_SIZE);
 }
 
-void insert_flow_table(pkt_info_t match_info[], pkt_info_t action_info[], uint32_t flow_index, uint8_t tuple_mask[], uint16_t match_type)
+void insert_flow_table(pkt_info_t match_info[], pkt_info_t action_info[], uint32_t flow_index, uint8_t tuple_mask[], __attribute__((unused)) uint16_t match_type)
 {
     //int32_t in_port_index = -1, mac_index = -1, ip_index = -1, port_index = -1, action_index = -1;
     uint8_t in_port_amount = 0, out_port_amount = 0;

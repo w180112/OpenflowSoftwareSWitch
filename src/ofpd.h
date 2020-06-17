@@ -6,11 +6,15 @@
   Designed by THE on SEP 26, 2019
 /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\*/
 
+#ifndef _OFPD_H_
+#define _OFPD_H_
+
 #include "ofp_common.h"
 #include "ofp_asyn.h"
 #include "ofp_ctrl2sw.h"
 #include "dp_flow.h"
 #include <ip_codec.h>
+#include <rte_timer.h>
 
 #define OFP_Q_KEY				0x0b00
 #define DP_Q_KEY				0x0c00
@@ -26,6 +30,14 @@
 
 #define MAX_USER_PORT_NUM		10
 #define MAX_OFP_QUERY_NUM		10
+
+#define BURST_SIZE 				32
+
+extern struct rte_mempool 		*mbuf_pool;
+extern struct rte_ring 			*any2dp;
+extern struct rte_ring 			*dp2tx;
+extern struct rte_ring			*any2dp;
+extern struct rte_ring			*any2ofp;
 
 typedef struct flowmod_info {
 	uint8_t		msg_type;
@@ -61,7 +73,8 @@ enum {
 
 //========= The structure of port ===========
 typedef struct {
-	BOOL				enable;
+	rte_atomic16_t		cp_enable;
+	rte_atomic16_t		dp_enable;
 	U8 					state;
 	U8					query_cnt;
 	U16					port;
@@ -76,6 +89,8 @@ typedef struct {
 	flowmod_info_t 		flowmod_info;
 	packet_out_info_t 	packet_out_info;
 	U8 					ofpbuf[MSG_LEN];
+	struct rte_timer	ofp_timer;
+	BOOL				ofp_start;
 	uint16_t 			ofpbuf_len;
 } tOFP_PORT;
 
@@ -146,3 +161,5 @@ typedef enum {
 	/* Meters and rate limiters configuration messages. */
 	OFPT_METER_MOD,
 }OFPT_t;
+
+#endif

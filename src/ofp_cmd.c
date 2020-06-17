@@ -4,6 +4,7 @@
 #include		<errno.h>
 #include		"ofpd.h"
 #include 		"ofp_cmd.h"
+#include		"mailbox.h"
 
 const cmd_list_t *cmd_lookup(const char *cmd);
 STATUS ofp_cmd2mailbox(U8 *mu, int mulen);
@@ -14,6 +15,7 @@ static int cmd_addif(int argc, char argv[4][64]);
 static int cmd_delif(int argc, char argv[4][64]);
 static int cmd_show_flows(int argc, char argv[4][64]);
 
+tOFP_MBX mail;
 static const cmd_list_t cmd_list[] = {
 	{ 1, "addbr", cmd_addbr, "<bridge>\t\tadd bridge" },
 	{ 1, "delbr", cmd_delbr, "<bridge>\t\tdelete bridge" },
@@ -79,7 +81,7 @@ void ofp_cmd(void)
 
 const cmd_list_t *cmd_lookup(const char *cmd)
 {
-	for (int i=0; i<sizeof(cmd_list)/sizeof(cmd_list[0]); i++) {
+	for (long unsigned int i=0; i<sizeof(cmd_list)/sizeof(cmd_list[0]); i++) {
 		if (!strcmp(cmd,cmd_list[i].name))
 			return &cmd_list[i];
 	}
@@ -89,11 +91,7 @@ const cmd_list_t *cmd_lookup(const char *cmd)
 
 int8_t cmd_parse(char ofp_cli[], int *count, char argument[4][64])
 {
- 	char  *str = NULL,
-
-  	*delim = " ",
-  	*token = NULL,
-   	*rest_of_str = NULL;
+ 	char  *str = NULL, *delim = " ", *token = NULL, *rest_of_str = NULL;
 
 	*count = 0;
  	str = strdup(ofp_cli);
@@ -101,7 +99,7 @@ int8_t cmd_parse(char ofp_cli[], int *count, char argument[4][64])
  	//start strtok_r
 
  	token = strtok_r(str,delim,&rest_of_str);
-	for(int i=0; i<=strlen(token); i++) {
+	for(int i=0; i<=(int)strlen(token); i++) {
 		if (*(token+i) == '\n')
 			*(token+i) = '\0';
 	}
@@ -111,7 +109,7 @@ int8_t cmd_parse(char ofp_cli[], int *count, char argument[4][64])
  	while(1) {
   		if ((token = strtok_r(rest_of_str,delim,&rest_of_str)) == NULL)
 			break;
-		for(int i=0; i<strlen(token)+1; i++) {
+		for(int i=0; i<(int)strlen(token)+1; i++) {
 			if (*(token+i) == '\n')
 				*(token+i) = '\0';
 		}
@@ -124,17 +122,22 @@ int8_t cmd_parse(char ofp_cli[], int *count, char argument[4][64])
 	return 0;
 }
 
-static int cmd_show_flows(int argc, char argv[4][64])
+static int cmd_show_flows(__attribute__((unused)) int argc, __attribute__((unused)) char argv[4][64])
 {
 	cli_2_ofp_t cli_2_ofp;
 
 	cli_2_ofp.opcode = SHOW_FLOW;
-	if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
+	mail.len = sizeof(cli_2_ofp_t);
+	rte_memcpy(mail.refp,&cli_2_ofp,mail.len); /* mail content will be copied into mail queue */
+
+	//printf("ofp_send2mailbox(ofp_sock.c %d): mulen=%d\n",__LINE__,mulen);
+	mail.type = IPC_EV_TYPE_CLI;
+	if (mailbox(any2ofp, (U8 *)&mail, 1) == TRUE)
 		return 0;
 	return 1;
 }
 
-static int cmd_addbr(int argc, char argv[4][64])
+static int cmd_addbr(__attribute__((unused)) int argc, char argv[4][64])
 {
 	int err;
 	cli_2_ofp_t cli_2_ofp;
@@ -142,7 +145,7 @@ static int cmd_addbr(int argc, char argv[4][64])
 	switch (err = br_add_bridge(argv[1])) {
 	case 0:
 		cli_2_ofp.opcode = ADD_BR;
-		strncpy(cli_2_ofp.brname,argv[1],64);
+		strncpy(cli_2_ofp.brname,argv[1],15);
 		if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
 			return 0;
 		return 1;
@@ -160,7 +163,7 @@ static int cmd_addbr(int argc, char argv[4][64])
 	return 0;
 }
 
-static int cmd_delbr(int argc, char argv[4][64])
+static int cmd_delbr(__attribute__((unused)) int argc, char argv[4][64])
 {
 	int err;
 	cli_2_ofp_t cli_2_ofp;
@@ -168,7 +171,7 @@ static int cmd_delbr(int argc, char argv[4][64])
 	switch (err = br_del_bridge(argv[1])) {
 	case 0:
 		cli_2_ofp.opcode = DEL_BR;
-		strncpy(cli_2_ofp.brname,argv[1],64);
+		strncpy(cli_2_ofp.brname,argv[1],15);
 		if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
 			return 0;
 		return 1;
@@ -208,8 +211,8 @@ static int cmd_addif(int argc, char argv[4][64])
 		switch(err) {
 		case 0:
 			cli_2_ofp.opcode = ADD_IF;
-			strncpy(cli_2_ofp.brname,brname,64);
-			strncpy(cli_2_ofp.ifname,ifname,64);
+			strncpy(cli_2_ofp.brname,brname,15);
+			strncpy(cli_2_ofp.ifname,ifname,15);
 			ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t));
 			printf("<%d at ofp_cmd.c\n", __LINE__);
 			continue;
@@ -243,6 +246,8 @@ static int cmd_addif(int argc, char argv[4][64])
 	return 0;
 }
 
+#pragma GCC diagnostic push  // require GCC 4.6
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough="
 static int cmd_delif(int argc, char argv[4][64])
 {
 	const char *brname;
@@ -258,10 +263,10 @@ static int cmd_delif(int argc, char argv[4][64])
 		switch (err) {
 		case 0:
 			cli_2_ofp.opcode = DEL_IF;
-			strncpy(cli_2_ofp.brname,argv[1],64);
-			strncpy(cli_2_ofp.ifname,ifname,64);
-			if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE);
-			continue;
+			strncpy(cli_2_ofp.brname,argv[1],15);
+			strncpy(cli_2_ofp.ifname,ifname,15);
+			if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
+				continue;
 
 		case ENODEV:
 			if (if_nametoindex(ifname) == 0)
@@ -285,6 +290,7 @@ static int cmd_delif(int argc, char argv[4][64])
 
 	return 0;
 }
+#pragma GCC diagnostic pop 
 
 /*********************************************************
  * ofp_cmd2mailbox:

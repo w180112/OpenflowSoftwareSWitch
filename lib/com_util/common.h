@@ -17,15 +17,18 @@ extern "C" {
 #include	    <stdlib.h>
 
 #define         UNIX_VERSION    
-#define		    _LIT_ENDIAN //_BIG_ENDIAN or _LIT_ENDIAN   
+//#define		    _LIT_ENDIAN //_BIG_ENDIAN or _LIT_ENDIAN   
 
 #ifdef          UNIX_VERSION
+
 /*-----------------------------------
  *            UNIX
  *----------------------------------*/
 #include	    <stdarg.h>
 #include	    <fcntl.h>
 #include        <unistd.h> /* fork() */
+#include		<stdint.h>
+
 #include	    <signal.h>
 #include	    <time.h>
 #include        <sys/wait.h> /* wait */
@@ -87,7 +90,7 @@ typedef  		void   				(*VOIDFUNCPTR)(void);   //return void
 #define 		IF_NAMESIZE 		16
 
 //#pragma pack(push)				/* push current alignment to stack */
-#pragma 		pack(1) 			/* set alignment to 1 byte boundary */
+//#pragma 		pack(1) 			/* set alignment to 1 byte boundary */
 //struct ....
 //#pragma pack(pop) 				/* restore original alignment from stack */
 
@@ -139,7 +142,7 @@ typedef U32                 *(*U32PTR_FUNCPTR)(void);  /* return U32 ptr */
 typedef void                *(*VOIDPTR_FUNCPTR)(void); /* return void ptr */
 typedef char                *(*STRFUNCPTR)(void);      /* return char ptr */
 typedef void 				(*SIG_FUNCPTR)(int);
-    
+
 #define W1                  1   /* debug warnning level */
 #define W2                  2
 #define W3                  3

@@ -10,6 +10,7 @@ This is a small OpenFlow protocol based software switch implementation in C.
 1. Linux OS
 2. RAM size larger than 2 GiB
 3. x86 system or ARM system with little endian
+4. DPDK and compatible NIC
 
 ## How to use:
 
@@ -19,7 +20,7 @@ Git clone this repository
 
 Type
 
-	# cd OpenflowSoftwareSWitch
+	# cd OpenflowSoftwareSWitch && git checkout dpdk
 
 Run
 
@@ -29,19 +30,17 @@ to compile
 
 Then
 
-	# ./osw <OpenFlow NIC name> <SDN controller ip>
+	# ./osw <DPDK eal options> -- <OpenFlow NIC name> <SDN controller ip>
 
-If OpenFlow connection is established, a simple console interface will show
+Once OpenFlow connection is established, a simple console interface will show
 
 	OSW>
 
 Try to type
 
-	OSW> addbr br0
+	OSW> show flows
 
-Then 
-
-	OSW> addif br0 <NIC interface name>
+to get flow table.
 
 If the prompt is missing, just press Enter.
 
@@ -63,6 +62,5 @@ To remove the binary files
 ## TODO:
 
 1. implementation Flowmod type - "delete flow" and flow timeout.
-2. del bridge/port and make bridge can be joined into socket operation
-3. change IPC method
-4. provide UIO
+2. add port configuration
+3. split flow table to multiple layers

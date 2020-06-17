@@ -17,6 +17,11 @@
 #include 		"ofp_ctrl2sw.h"
 #include 		<ifaddrs.h>
 #include		<inttypes.h>
+#include		<rte_byteorder.h>
+#include 		<rte_timer.h>
+#include 		<rte_memcpy.h>
+#include 		"dp_sock.h"
+#include 		"mailbox.h"
 
 extern int		ofp_io_fds[10];
 
@@ -35,7 +40,7 @@ static STATUS 	A_send_pktout_to_dp(tOFP_PORT *port_ccb);
 static STATUS 	A_send_flowmod_to_dp(tOFP_PORT *port_ccb);
 static STATUS 	A_send_port_status(tOFP_PORT *port_ccb);
 
-STATUS ofp_send2dp(U8 *mu, int mulen);
+void echo_timer(__attribute__((unused)) struct rte_timer *tim, tOFP_PORT *port_ccb);
 
 tOFP_STATE_TBL  ofp_fsm_tbl[] = { 
 /*//////////////////////////////////////////////////////////////////////////////////
@@ -63,7 +68,7 @@ tOFP_STATE_TBL  ofp_fsm_tbl[] = {
 
 { S_ESTABLISHED,    E_PORT_STATUS,          S_ESTABLISHED,  { A_send_port_status, 0 }},
 
-{ S_INVALID, 0 }
+{ S_INVALID, 0, 0, { 0 } }
 };
  
 /***********************************************************************
@@ -195,7 +200,8 @@ STATUS A_send_feature_reply(tOFP_PORT *port_ccb)
   	}*/
     fd = socket(AF_INET, SOCK_DGRAM, 0);
  	ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name,eth_name,IFNAMSIZ-1);
+    rte_memcpy(ifr.ifr_name, eth_name, IFNAMSIZ-1);
+	ifr.ifr_name[IFNAMSIZ-1] = '\0';
  	ioctl(fd,SIOCGIFHWADDR,&ifr);
     close(fd);
 	//freeifaddrs(ifaddr);
@@ -205,20 +211,25 @@ STATUS A_send_feature_reply(tOFP_PORT *port_ccb)
         ofp_switch_features.datapath_id += tmp << (i*8);
     }
 	//printf("%"PRIu64"\n", ofp_switch_features.datapath_id);
-	ofp_switch_features.datapath_id = bitswap64(ofp_switch_features.datapath_id);
+	ofp_switch_features.datapath_id = rte_cpu_to_be_64(ofp_switch_features.datapath_id);
 	ofp_switch_features.n_buffers = htonl(256);
 	ofp_switch_features.n_tables = 254;
 	ofp_switch_features.auxiliary_id = 0;
 	ofp_switch_features.capabilities = OFPC_FLOW_STATS | OFPC_PORT_STATS | OFPC_QUEUE_STATS;
 	ofp_switch_features.capabilities = htonl(ofp_switch_features.capabilities);
-	ofp_switch_features.ofp_header.length += sizeof(ofp_switch_features_t);
+	ofp_switch_features.ofp_header.length += sizeof(ofp_switch_features_t) - sizeof(struct ofp_header);
 	uint16_t length = ofp_switch_features.ofp_header.length;
 	ofp_switch_features.ofp_header.length = htons(ofp_switch_features.ofp_header.length);
 
 	memcpy(buffer, &ofp_switch_features, length);
 	drv_xmit(buffer, length, port_ccb->sockfd);
-
+	rte_atomic16_set(&(port_ccb->dp_enable), 1);
 	return TRUE;
+}
+
+void echo_timer(__attribute__((unused)) struct rte_timer *tim, tOFP_PORT *port_ccb)
+{
+	OFP_FSM(port_ccb, E_OFP_TIMEOUT);
 }
 
 /*********************************************************************
@@ -232,7 +243,8 @@ STATUS A_start_timer(tOFP_PORT *port_ccb)
 		//kill();
 	}
 	//DBG_OFP(DBGLVL1,port_ccb,"start query timer(%ld secs)\n",ofp_interval/SEC);
-	OSTMR_StartTmr(ofpQid, port_ccb, ofp_interval, "ofp:txT", E_OFP_TIMEOUT);
+	//OSTMR_StartTmr(ofpQid, port_ccb, ofp_interval, "ofp:txT", E_OFP_TIMEOUT);
+	rte_timer_reset(&(port_ccb->ofp_timer),3*rte_get_timer_hz(),PERIODICAL,6,(rte_timer_cb_t)echo_timer,port_ccb);
 	
 	return TRUE;
 }
@@ -244,7 +256,8 @@ STATUS A_start_timer(tOFP_PORT *port_ccb)
 STATUS A_stop_query_tmr(tOFP_PORT *port_ccb)
 {
 	//DBG_OFP(DBGLVL1,port_ccb,"stop query timer\n");
-	OSTMR_StopXtmr(port_ccb,E_OFP_TIMEOUT);
+	//OSTMR_StopXtmr(port_ccb,E_OFP_TIMEOUT);
+	rte_timer_stop(&(port_ccb->ofp_timer));
 	return TRUE;
 } 
 
@@ -358,7 +371,12 @@ STATUS A_send_packet_in(tOFP_PORT *port_ccb)
 STATUS A_send_flowmod_to_dp(tOFP_PORT *port_ccb)	
 {
 	//printf("<%d at ofp_fsm.c\n", __LINE__);
-	ofp_send2dp((U8 *)&(port_ccb->flowmod_info), port_ccb->flowmod_info.msg_len);
+	tOFP_MBX mail;
+
+	mail.len = port_ccb->flowmod_info.msg_len;
+	mail.type = IPC_EV_TYPE_OFP;
+	rte_memcpy(mail.refp, &(port_ccb->flowmod_info), mail.len);
+	mailbox(any2dp, (U8 *)&mail, 1);
 	//printf("<%d at ofp_fsm.c\n", __LINE__);
 	memset(&(port_ccb->flowmod_info), 0, sizeof(flowmod_info_t));
 
@@ -383,41 +401,13 @@ STATUS A_send_port_status(tOFP_PORT *port_ccb)
  *********************************************************************/
 STATUS A_send_pktout_to_dp(tOFP_PORT *port_ccb)	
 {
-	ofp_send2dp((U8 *)&(port_ccb->packet_out_info), port_ccb->packet_out_info.msg_len);
-	memset(&(port_ccb->packet_out_info), 0, sizeof(packet_out_info_t));
-
-	return TRUE;
-}
-/*********************************************************
- * ofp_send2dp:
- *
- * Input  : mu - msg to dp
- *          mulen - mu length
- *
- * return : TRUE or ERROR(-1)
- *********************************************************/
-STATUS ofp_send2dp(U8 *mu, int mulen)	
-{
 	tOFP_MBX mail;
 
-    if (dpQid == -1) {
-		if ((dpQid=msgget(DP_Q_KEY,0600|IPC_CREAT)) < 0) {
-			printf("send> Oops! dpQ(key=0x%x) not found\n",DP_Q_KEY);
-   	 	}
-	}
-	
-	if (mulen > MSG_LEN) {
-	 	printf("Incoming frame length(%d) is too large at ofp_fsm.c!\n",mulen);
-		return ERROR;
-	}
-
-	mail.len = mulen;
-	memcpy(mail.refp, mu, mulen); /* mail content will be copied into mail queue */
-	
-	//printf("dp_send2mailbox(dp_sock.c %d): mulen=%d\n",__LINE__,mulen);
+	mail.len = port_ccb->packet_out_info.msg_len;
 	mail.type = IPC_EV_TYPE_OFP;
-	ipc_sw(dpQid, &mail, sizeof(mail), -1);
-	//printf("send msg to dp\n");
+	rte_memcpy(mail.refp, &(port_ccb->packet_out_info), mail.len);
+	mailbox(any2dp, (U8 *)&mail, 1);
+	memset(&(port_ccb->packet_out_info), 0, sizeof(packet_out_info_t));
 
 	return TRUE;
 }

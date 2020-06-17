@@ -10,6 +10,8 @@
 #ifndef _OFP_FSM_H_
 #define _OFP_FSM_H_
 
+extern STATUS	OFP_FSM(tOFP_PORT *port_ccb, U16 event);
+
 typedef struct{
     U8   	state;
     U16   	event;
