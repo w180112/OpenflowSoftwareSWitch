@@ -21,7 +21,7 @@ extern "C" {
 
 extern void           drv_xmit(U8 *mu, U16 mulen, int fd_id);
 extern int 						OFP_SOCK_INIT(char *if_name, char *ctrl_ip);
-extern void 					ofp_sockd_cp(tOFP_PORT *port_ccb);
+extern int 					  ofp_sockd_cp(tOFP_PORT *port_ccb);
 
 #ifdef __cplusplus
 }

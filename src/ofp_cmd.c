@@ -91,7 +91,8 @@ const cmd_list_t *cmd_lookup(const char *cmd)
 
 int8_t cmd_parse(char ofp_cli[], int *count, char argument[4][64])
 {
- 	char  *str = NULL, *delim = " ", *token = NULL, *rest_of_str = NULL;
+ 	char  *str = NULL, *token = NULL, *rest_of_str = NULL;
+	const char *delim = " ";
 
 	*count = 0;
  	str = strdup(ofp_cli);

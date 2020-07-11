@@ -5,7 +5,8 @@
 ######################################
 # Set variable
 ######################################
-SUBDIR = lib/libbridge lib/com_util src/
+SUBDIR += lib/libbridge 
+SUBDIR += lib/com_util src/
 
 BUILDSUBDIR = $(SUBDIR:%=build-%)
 CLEANSUBDIR = $(SUBDIR:%=clean-%)

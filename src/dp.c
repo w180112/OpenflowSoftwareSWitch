@@ -26,7 +26,7 @@ flow_t flow[TABLE_SIZE]; //flow table
 extern STATUS DP_decode_frame(tDP_MSG *msg, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id);
 extern STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 extern STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
-extern STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head);
+extern STATUS pkt_out_process(packet_out_info_t packet_out_info/*, dp_io_fds_t *dp_io_fds_head*/);
 extern STATUS print_field(void **cur, uint16_t *type);
 
 //extern sem_t 				*sem;
@@ -42,10 +42,10 @@ void dp(void)
 {
 	tOFP_MBX		*mail[BURST_SIZE], mail2ofp;
 	tany2ofp_MSG 	msg_2_ofp;
-	tMBUF   		mbuf;
-	int				msize;
+	//tMBUF   		mbuf;
+	//int				msize;
 	U16				recv_type;
-	int 			ret, i;
+	int 			ret;
 	q_t				*q_head = NULL;
 	uint32_t 		total_enq_node = 0;
 	uint32_t 		buffer_id, id = 1;
@@ -124,7 +124,7 @@ void dp(void)
 					memset(packet_out_info.action_info, 0, sizeof(pkt_info_t)*20);
 					rte_memcpy(&packet_out_info, mail[i]->refp, sizeof(packet_out_info_t));
 					puts("recv pkt_out from ofp");
-					if (pkt_out_process(packet_out_info, dp_io_fds_head) == FALSE)
+					if (pkt_out_process(packet_out_info/*, dp_io_fds_head*/) == FALSE)
 						puts("pkt_out processing exit unexpected.");
 				}
 				else if (*(mail[i]->refp) == CLI) {

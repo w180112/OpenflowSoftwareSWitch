@@ -6,6 +6,8 @@
 
 #include "ofp_flow.h"
 #include "ofpd.h"
+#include <rte_ip.h>
+#include "mailbox.h"
 
 extern void print_in_port(table_in_port_t in_port);
 extern void print_mac(table_mac_t mac);
@@ -23,10 +25,10 @@ void print_ofp_flow_table(void);
 
 STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], uint16_t match_type)
 {
-    uint32_t new_index;// = (tuple_mask[0] * 1000 + tuple_mask[1] * 100 + tuple_mask[2] * 10 + tuple_mask[3]) % OFP_FABLE_SIZE;
-    uint32_t flow_index;
+    int32_t new_index;// = (tuple_mask[0] * 1000 + tuple_mask[1] * 100 + tuple_mask[2] * 10 + tuple_mask[3]) % OFP_FABLE_SIZE;
+    int32_t flow_index;
 
-    uint32_t hash_index = 0;
+    int32_t hash_index = 0;
 	uint16_t hash_type = 0;
 	for(int i=0; i<20&&flowmod_info.match_info[i].type>0; i++) {
 		//PRINT_MESSAGE(&(flowmod_info.match_info[i]),sizeof(pkt_info_t));
@@ -60,9 +62,12 @@ STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], ui
     flow_table[flow_index].table_flow_info.table_id = flowmod_info.table_id;
     flow_table[flow_index].table_flow_info.hash_type = hash_type;
     flow_table[flow_index].table_flow_info.is_exist = TRUE;
+    flow_table[flow_index].table_flow_info.is_tail = flowmod_info.is_tail;
     insert_flow_table(flowmod_info.match_info, flowmod_info.action_info, flow_index, tuple_mask, match_type);
+    rte_memcpy(&(flow_table[flow_index].flowmod_info), &flowmod_info, sizeof(flowmod_info_t));
+    /* insert to tuple space search table */
     hash_index = hash_func(tuple_mask, 4) % OFP_TABLE_SIZE;
-    for(uint32_t i=hash_index;; i++) {
+    for(int32_t i=hash_index;; i++) {
         if (i >= OFP_TABLE_SIZE)
             i -= OFP_TABLE_SIZE;
         if (tuple_table[i].is_exist == FALSE) {
@@ -71,10 +76,12 @@ STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], ui
             memcpy(tuple_table[new_index].match_bits, tuple_mask, 4);           
             break;
         }
+        /* if the new rule is exist, then just insert the rule index to tuple space table */
         if (BYTES_CMP(tuple_table[i].match_bits, tuple_mask, 4) == TRUE) {
             new_index = i;
             break;
         }
+        /* if tuple space table is full, then drop the new rule */
         if (hash_index - i == 1)
             return FALSE;
     }
@@ -314,4 +321,76 @@ void print_ofp_flow_table(void)
         print_action(flow_table[flow_index].action_info);
         puts("");
     }
+}
+
+int find_tuple_and_rule(tOFP_MBX *mail)
+{
+    uint8_t dst_mac_mask, src_mac_mask, src_ip_mask, dst_ip_mask;
+    //U16			mulen;
+	U8			*mu;
+	tany2ofp_MSG *msg;
+    int32_t cur_entry_id, flow_entry_id = -1;
+    uint32_t in_port_id;
+    uint16_t cur_priority_id = 0;
+
+	msg = (tany2ofp_MSG *)(mail->refp);
+	//ofp_ports[0].sockfd = msg->sockfd;
+	mu = (U8 *)(((tDP_MSG *)(msg->buffer))->buffer);
+	//mulen = ((tDP_MSG *)(msg->buffer))->len;
+    in_port_id = ((tDP_MSG *)(msg->buffer))->port_no;
+
+    for(int i=0; i<OFP_TABLE_SIZE; i++) {
+        if (tuple_table[i].is_exist == FALSE)
+            continue;
+        dst_mac_mask = tuple_table[i].match_bits[0];
+        src_mac_mask = tuple_table[i].match_bits[1];
+        src_ip_mask = tuple_table[i].match_bits[2];
+        dst_ip_mask = tuple_table[i].match_bits[3];
+        for(struct flow_entry_list *cur=tuple_table[i].list; cur!=NULL; cur=cur->next) {
+            cur_entry_id = cur->entry_id;
+            if (flow_table[cur_entry_id].table_in_port.is_exist && flow_table[cur_entry_id].table_in_port.in_port[0] != in_port_id)
+                continue;
+            if (flow_table[cur_entry_id].table_mac.is_exist) {
+                if (BYTES_CMP(((struct rte_ether_hdr *)mu)->d_addr.addr_bytes, flow_table[cur_entry_id].table_mac.dst_mac, dst_mac_mask) == FALSE)
+                    continue;
+                if (BYTES_CMP(((struct rte_ether_hdr *)mu)->s_addr.addr_bytes, flow_table[cur_entry_id].table_mac.src_mac, src_mac_mask) == FALSE)
+                    continue;
+                if (flow_table[cur_entry_id].table_mac.eth_type != 0 && flow_table[cur_entry_id].table_mac.eth_type != rte_be_to_cpu_16(((struct rte_ether_hdr *)mu)->ether_type))
+                    continue;
+            }
+            if (flow_table[cur_entry_id].table_ip.is_exist) {
+                if (BYTES_CMP((U8 *)&(((struct rte_ipv4_hdr *)(((struct rte_ether_hdr *)mu) + 1))->src_addr), (U8 *)&(flow_table[cur_entry_id].table_ip.src_ip_addr), src_ip_mask) == FALSE)
+                    continue;
+                if (BYTES_CMP((U8 *)&(((struct rte_ipv4_hdr *)(((struct rte_ether_hdr *)mu) + 1))->dst_addr), (U8 *)&(flow_table[cur_entry_id].table_ip.dst_ip_addr), dst_ip_mask) == FALSE)
+                    continue;
+                if (flow_table[cur_entry_id].table_ip.ip_proto != 0 && flow_table[cur_entry_id].table_ip.ip_proto != rte_be_to_cpu_16(((struct rte_ipv4_hdr *)(((struct rte_ether_hdr *)mu) + 1))->next_proto_id))
+                    continue;
+            }
+            if (flow_table[cur_entry_id].table_port.is_exist) {               
+                if (flow_table[cur_entry_id].table_port.src_ip_port != 0 && flow_table[cur_entry_id].table_port.src_ip_port != rte_be_to_cpu_16(*(uint16_t *)(mu + 34)))
+                    continue;
+                if (flow_table[cur_entry_id].table_port.dst_ip_port != 0 && flow_table[cur_entry_id].table_port.dst_ip_port != rte_be_to_cpu_16(*(uint16_t *)(mu + 36)))
+                    continue;
+            }
+            if (flow_table[cur_entry_id].table_flow_info.priority >= cur_priority_id)
+                flow_entry_id = cur_entry_id;
+            if (flow_table[cur_entry_id].action_info.out_port[0].port == OFPP_CONTROLLER)
+                flow_entry_id = -1;
+        }
+    }
+    return flow_entry_id;
+}
+
+void send_back2dp(int flow_entry_id)
+{
+    tOFP_MBX mail;
+
+    flow_table[flow_entry_id].flowmod_info.command = OFPFC_ADD;
+    flow_table[flow_entry_id].flowmod_info.msg_type = FLOWMOD;
+    flow_table[flow_entry_id].flowmod_info.msg_len = sizeof(flowmod_info_t);
+
+	mail.len = sizeof(flowmod_info_t);
+	mail.type = IPC_EV_TYPE_OFP;
+	rte_memcpy(mail.refp, &(flow_table[flow_entry_id].flowmod_info), mail.len);
+	mailbox(any2dp, (U8 *)&mail, 1);
 }

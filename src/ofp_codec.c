@@ -360,6 +360,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, __attribute__((unused)) U
 					shift_count = 48;
 				tuple_mask[0] = shift_count;
 				*match_type |= 2;
+				port_ccb->flowmod_info.match_info[i].mask_len = tuple_mask[0];
 				break;
 			case OFPXMT_OFB_ETH_SRC:
 				memcpy(port_ccb->flowmod_info.match_info[i].src_mac, (U8 *)cur + sizeof(ofp_oxm_header_t), ETH_ALEN);
@@ -377,6 +378,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, __attribute__((unused)) U
 					shift_count = 48;
 				tuple_mask[1] = shift_count;
 				*match_type |= 2;
+				port_ccb->flowmod_info.match_info[i].mask_len = tuple_mask[1];
 				break;
 			case OFPXMT_OFB_ETH_TYPE:
 				port_ccb->flowmod_info.match_info[i].ether_type = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
@@ -406,6 +408,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, __attribute__((unused)) U
 					shift_count = 32;
 				tuple_mask[2] = shift_count;
 				*match_type |= 4;
+				port_ccb->flowmod_info.match_info[i].mask_len = tuple_mask[2];
 				break;
 			case OFPXMT_OFB_IPV4_DST:
 				port_ccb->flowmod_info.match_info[i].ip_dst = ntohl(*((uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
@@ -423,6 +426,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, __attribute__((unused)) U
 					shift_count = 32;
 				tuple_mask[3] = shift_count;
 				*match_type |= 4;
+				port_ccb->flowmod_info.match_info[i].mask_len = tuple_mask[3];
 				break;
 			case OFPXMT_OFB_TCP_SRC:
 				port_ccb->flowmod_info.match_info[i].src_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));

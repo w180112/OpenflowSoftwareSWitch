@@ -1,7 +1,7 @@
 # OpenFlow protocol software switch implementation
 
 [![BSD license](https://img.shields.io/badge/License-BSD-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Build Status](https://travis-ci.org/w180112/OpenflowSoftwareSWitch.svg?branch=tss)](https://travis-ci.org/w180112/OpenflowSoftwareSWitch)
+[![Build Status](https://travis-ci.org/w180112/OpenflowSoftwareSWitch.svg?branch=dpdk)](https://travis-ci.org/w180112/OpenflowSoftwareSWitch)
 
 This is a small OpenFlow protocol based software switch implementation in C.
 
@@ -55,12 +55,15 @@ To remove the binary files
 
 ## Test environment:
 
-1. CentOS 7.6 and AMD EPYC 7401P, 256GB ram server
-2. Raspbain Feb. 2020 on RaspberryPi 4B v1.2
-3. Can connect to Ryu SDN controller with simple_switch_13.py application
+1. CentOS 8.1 and AMD EPYC 7401P, 256GB ram server
+2. Can connect to Ryu SDN controller with simple_switch_13.py application
 
 ## TODO:
 
 1. implementation Flowmod type - "delete flow" and flow timeout.
 2. add port configuration
-3. split flow table to multiple layers
+
+## Changelog 2020/07/11
+
+1. Bug fix.
+2. Split flow table into control plane and date plane, when flow rule missed in data plane but matched in control plane, control plane will send the matched flow rule to data plane, otherwise control plane will send a packet_in packet to OpenFlow controller. 

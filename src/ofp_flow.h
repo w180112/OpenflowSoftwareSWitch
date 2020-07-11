@@ -6,11 +6,14 @@
 #ifndef _OFP_FLOW_H_
 #define _OFP_FLOW_H_
 
-#include <common.h>
+#include "ofp.h"
 
-#define OFP_TABLE_SIZE 65536
+#define OFP_TABLE_SIZE 32767
 #define MAX_IN_PORT 128
 #define MAX_OUT_PORT 128
+
+extern int find_tuple_and_rule(tOFP_MBX *mail);
+extern void send_back2dp(int flow_entry_id);
 
 typedef struct table_flow_info {
     uint64_t cookie;
@@ -26,6 +29,8 @@ typedef struct table_flow_info {
 	uint32_t in_port;
     int32_t next_table_index;
     uint16_t next_table_type;
+    uint64_t cache_miss_times;
+    BOOL	is_tail;
     BOOL	is_exist;
 }table_flow_info_t;
 
@@ -37,8 +42,6 @@ typedef struct table_mac {
     uint8_t dst_mask_len;
     uint64_t src_mask;
     uint8_t src_mask_len;
-    int32_t next_table_index;
-    uint16_t next_table_type;
     BOOL	is_exist;
 }table_mac_t;
 
@@ -71,7 +74,7 @@ typedef struct table_port {
 }table_port_t;
 
 struct flow_entry_list {
-    uint32_t entry_id;
+    int32_t entry_id;
     struct flow_entry_list *next;
 };
 
@@ -106,6 +109,7 @@ typedef struct flow_table {
     table_in_port_t table_in_port;
     table_port_t table_port;
     action_info_t action_info;
+    flowmod_info_t flowmod_info;
 }flow_table_t;
 
 #endif

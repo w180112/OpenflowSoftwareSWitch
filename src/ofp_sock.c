@@ -26,13 +26,12 @@
 #include		"ofpd.h"
 
 struct ifreq	ethreq;
-static struct   sockaddr_ll 	sll; 
+//static struct   sockaddr_ll 	sll; 
 int				ofpSockSize = sizeof(struct sockaddr_in);
 int				ofp_io_fds[2];
 fd_set			ofp_io_ready[2];
 
-void 			ofp_sockd_cp(tOFP_PORT *port_ccb);
-void 			ofp_sockd_dp(void);
+int 			ofp_sockd_cp(tOFP_PORT *port_ccb);
 
 /**************************************************************************
  * OFP_SOCK_INIT :
@@ -44,9 +43,9 @@ void 			ofp_sockd_dp(void);
 int OFP_SOCK_INIT(char *if_name, char *ctrl_ip) 
 {
 	struct sockaddr_in 			sock_info[2], local_sock_info[2];
-	struct sock_fprog  			Filter;
+	//struct sock_fprog  			Filter;
 	struct ifreq 				ifr;
-	static struct sock_filter  	BPF_code[] = {
+	/*static struct sock_filter  	BPF_code[] = {
 		{ 0x28, 0, 0, 0x0000000c },
 		{ 0x15, 0, 10, 0x00000800 },
 		{ 0x20, 0, 0, 0x0000001e },
@@ -60,7 +59,7 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
 		{ 0x15, 0, 1, 0x000019ff },
 		{ 0x6, 0, 0, 0x00040000 },
 		{ 0x6, 0, 0, 0x00000000 },
-	};
+	};*/
 
     if ((ofp_io_fds[0]=socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 	    printf("socket");
@@ -146,9 +145,10 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
  *
  * iov structure will provide the memory, so parameter pBuf doesn't need to care it.
  **************************************************************************/
-void ofp_sockd_cp(tOFP_PORT *port_ccb)
+int ofp_sockd_cp(tOFP_PORT *port_ccb)
 {
-	int			n,rxlen;
+	//int			n;
+	int 		rxlen;
 	tOFP_MSG 	msg;
 	tOFP_MBX	mail;
 	
@@ -217,42 +217,8 @@ void ofp_sockd_cp(tOFP_PORT *port_ccb)
     		
    		//} /* if select */
    	} /* for */
-}
-
-/**************************************************************************
- * ofp_sockd_dp:
- *
- * iov structure will provide the memory, so parameter pBuf doesn't need to care it.
- **************************************************************************/
-void ofp_sockd_dp(void)
-{
-	int			n, rxlen;
-	tOFP_MSG 	msg;
-#if 0	
-	for(;;) {
-		if ((n = select(ofp_io_fds[1]+1,&ofp_io_ready[1],(fd_set*)0,(fd_set*)0,NULL/*&to*/)) < 0) {
-   		    /* if "to" = NULL, then "select" will block indefinite */
-   			printf("select error !!! Giveup this receiving.\n");
-   			sleep(2);
-   			continue;
-   		}
-		if (n == 0)  continue;
-		if (FD_ISSET(ofp_io_fds[1],&ofp_io_ready[1])) {
-    		rxlen = recvfrom(ofp_io_fds[1],msg.buffer,ETH_MTU,0,NULL,NULL);
-    		if (rxlen <= 0) {
-      			printf("Error! recvfrom(): len <= 0 at DP\n");
-       			continue;
-    		}
-    		msg.type = DRIV_DP;
-			msg.sockfd = ofp_io_fds[1];
-   			/*printf("=========================================================\n");
-			printf("rxlen=%d\n",rxlen);
-    		PRINT_MESSAGE((char*)buffer, rxlen);*/
-    		
-    		ofp_send2mailbox((U8*)&msg, rxlen+sizeof(int)+1);
-   		} /* if select */
-	}
-#endif
+	
+	return 0;
 }
 
 /**************************************************************

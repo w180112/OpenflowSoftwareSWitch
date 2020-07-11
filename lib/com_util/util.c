@@ -611,6 +611,11 @@ void  PRINT_MESSAGE(unsigned char *msg, int len)
 	printf("\n");
 }
 
+/*----------------------------------------------------------------------
+ * BYTES_CMP
+ *
+ * Note: compare *arg1 and *arg2 with length arg3, if the result is equal, then return TURE, else return FALSE
+ *---------------------------------------------------------------------*/
 STATUS BYTES_CMP(U8 *var1, U8 *var2, U32 len)
 {
     for(U32 i=0; i<len; i++) {
@@ -620,7 +625,7 @@ STATUS BYTES_CMP(U8 *var1, U8 *var2, U32 len)
     return TRUE;
 }
 
-uint32_t hash_func(unsigned char *key, size_t len)
+int32_t hash_func(unsigned char *key, size_t len)
 {
     uint32_t hash, i; 
     for (hash = i = 0; i < len; ++i) {

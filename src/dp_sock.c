@@ -156,7 +156,7 @@ int DP_SOCK_INIT(char *ifname, uint32_t port_id, dp_io_fds_t **dp_io_fds_head)
 
 	return 0;
 }
-
+#if 0
 /**************************************************************************
  * sockd_dp:
  *
@@ -164,11 +164,13 @@ int DP_SOCK_INIT(char *ifname, uint32_t port_id, dp_io_fds_t **dp_io_fds_head)
  **************************************************************************/
 void sockd_dp(__attribute__((unused)) dp_io_fds_t *dp_io_fds_head)
 {
+
 	int			n, rxlen;
 	tDP_MSG 	*msg;
 	struct epoll_event events[MAX_EVENTS];
 	int nfds;
 	dp_io_fds_t *cur_io_fd;
+
 	#if 0
 	for (;;) {
 		printf("<%d\n", __LINE__);
@@ -224,7 +226,7 @@ void sockd_dp(__attribute__((unused)) dp_io_fds_t *dp_io_fds_head)
 		
     }
 	#endif
-	#if 0
+
 	for(;;) {    
 		if ((n = select(max_fd+1,&dp_io_ready,(fd_set*)0,(fd_set*)0,NULL/*&to*/)) < 0){
    		    /* if "to" = NULL, then "select" will block indefinite */
@@ -274,9 +276,9 @@ void sockd_dp(__attribute__((unused)) dp_io_fds_t *dp_io_fds_head)
    			} /* if select */
 		}
    	} /* for */
-	#endif
-}
 
+}
+#endif
 void dp_drv_xmit(U8 *mu, U16 mulen, uint32_t port_id, uint32_t in_port, dp_io_fds_t *dp_io_fds_head)
 {
 	dp_io_fds_t *cur_io_fd;

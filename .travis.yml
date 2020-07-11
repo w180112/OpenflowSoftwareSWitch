@@ -5,6 +5,7 @@ branches:
   only:
   - master
   - tss
+  - dpdk
 
 compiler:
   - gcc

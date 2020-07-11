@@ -116,7 +116,7 @@ int dp_init(void)
  ***************************************************************/
 int main(int argc, char **argv)
 {
-	int 			ret;
+	//int 			ret;
 	uint16_t 		portid;
 	unsigned 		cpu_id = 1;
 	

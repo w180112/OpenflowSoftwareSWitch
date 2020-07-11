@@ -9,6 +9,7 @@
 #include <rte_memcpy.h>
 #include "dp_sock.h"
 #include "mailbox.h"
+#include "ofp_flow.h"
 
 int ofpdInit(tOFP_PORT *port_ccb);
 int ofp_loop(tOFP_PORT *port_ccb);
@@ -61,15 +62,16 @@ int ofpdInit(__attribute__((unused)) tOFP_PORT *port_ccb)
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough="
 int ofp_loop(tOFP_PORT *port_ccb)
 {
-	tIPC_PRIM		*ipc_prim;
+	//tIPC_PRIM		*ipc_prim;
 	cli_2_ofp_t 	*cli_2_ofp;
 	cli_2_dp_t 		cli_2_dp;
     tOFP_MBX		*mail[BURST_SIZE], mail_2_dp;
-	tOFP_PORT		*ccb;
-	tMBUF   		mbuf;
-	int				msize, ret;
+	//tOFP_PORT		*ccb;
+	//tMBUF   		mbuf;
+	//int				msize;
+	int 			ret;
 	//U16			port;
-	U16				event;
+	//U16				event;
 	U16				recv_type;
 	uint16_t 		burst_size;
 
@@ -176,6 +178,8 @@ int ofp_loop(tOFP_PORT *port_ccb)
 			case IPC_EV_TYPE_DP:
 				//mail = (tOFP_MBX*)mbuf.mtext;
 				//printf("<%d at ofpd\n", __LINE__);
+				if ((ret = find_tuple_and_rule(mail[i])) >= 0)
+					send_back2dp(ret);
 				OFP_encode_packet_in(mail[i], &ofp_ports[0]);
 				//printf("<%d at ofpd\n", __LINE__);
 				ofp_ports[0].event = E_PACKET_IN;

@@ -7,6 +7,8 @@
 #ifndef _IP_CODEC_H_
 #define _IP_CODEC_H_
 
+#include <common.h>
+
 #define IP_VERSION             	4
 #define IP_MIN_HDR_LEN         	5    /* in 32 bits */
 #define MY_IP_TTL               0x40 
