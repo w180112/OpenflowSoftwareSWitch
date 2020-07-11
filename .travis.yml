@@ -16,8 +16,6 @@ os:
 before_install:
   - sudo apt-get install -y libnuma-dev
   - sudo apt-get install -y linux-modules-4.15.0-1028-gcp linux-headers-$(uname -r)
-
-script:
   - get_script_dir () {
     	SOURCE="${BASH_SOURCE[0]}"
     	while [ -h "$SOURCE" ]; do
@@ -28,6 +26,8 @@ script:
      	DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
      	echo "$DIR"
     }
+
+script:
   - export RTE_SDK=$(get_script_dir)/lib/dpdk-stable-19.11.3
   - export RTE_TARGET=x86_64-native-linux-gcc
   - cd lib/dpdk-stable-19.11.3
