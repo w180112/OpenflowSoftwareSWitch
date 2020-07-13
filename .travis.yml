@@ -3,6 +3,8 @@ sudo: true
 
 branches:
   only:
+  - master
+  - tss
   - dpdk
 
 compiler:
