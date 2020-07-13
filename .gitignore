@@ -1,5 +1,5 @@
 .DS_Store
 .vscode/*
-src/build/app/*
+src/build
 vgcore*
-lib/dpdk-stable-19.11.3/*
+lib/dpdk-stable-19.11.3/x86_64-native-linuxapp-gcc
