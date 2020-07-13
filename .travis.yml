@@ -19,4 +19,3 @@ before_install:
 
 script:
   - ./boot.sh || travis_terminate 1;
-  - make

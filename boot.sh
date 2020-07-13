@@ -13,3 +13,4 @@ export RTE_TARGET=x86_64-native-linuxapp-gcc
 cd lib/dpdk-stable-19.11.3
 make install T=x86_64-native-linuxapp-gcc -j 10
 cd ../..
+make
