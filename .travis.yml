@@ -1,10 +1,8 @@
 language: C
-sudo: false
+sudo: true
 
 branches:
   only:
-  - master
-  - tss
   - dpdk
 
 compiler:
@@ -18,5 +16,5 @@ before_install:
   - sudo apt-get install -y linux-modules-4.15.0-1028-gcp linux-headers-$(uname -r)
 
 script:
-  - ./boot.sh
+  - ./boot.sh || travis_terminate 1;
   - make
