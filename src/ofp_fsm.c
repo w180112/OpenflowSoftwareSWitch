@@ -15,6 +15,7 @@
 #include		"ofp_dbg.h"
 #include 		"ofp_asyn.h"
 #include 		"ofp_ctrl2sw.h"
+#include 		"dp_sock.h"
 #include 		<ifaddrs.h>
 #include		<inttypes.h>
 
@@ -211,7 +212,7 @@ STATUS A_send_feature_reply(tOFP_PORT *port_ccb)
 	ofp_switch_features.auxiliary_id = 0;
 	ofp_switch_features.capabilities = OFPC_FLOW_STATS | OFPC_PORT_STATS | OFPC_QUEUE_STATS;
 	ofp_switch_features.capabilities = htonl(ofp_switch_features.capabilities);
-	ofp_switch_features.ofp_header.length += sizeof(ofp_switch_features_t);
+	ofp_switch_features.ofp_header.length += sizeof(ofp_switch_features_t) - sizeof(struct ofp_header);
 	uint16_t length = ofp_switch_features.ofp_header.length;
 	ofp_switch_features.ofp_header.length = htons(ofp_switch_features.ofp_header.length);
 

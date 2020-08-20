@@ -8,6 +8,7 @@
 #include		<sys/socket.h>
 #include 		<sys/types.h> 
 #include 		<netinet/in.h>
+#include 		"dp_sock.h"
 
 #if 0 //use with splice()
 #include <stdlib.h>
@@ -21,6 +22,9 @@
 
 #include        "ofp_sock.h"
 #include		"ofpd.h"
+
+void 			ofp_sockd_cp(tOFP_PORT *port_ccb);
+void 			ofp_sockd_dp(void);
 
 struct ifreq	ethreq;
 static struct   sockaddr_ll 	sll; 
@@ -44,7 +48,7 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
 		{ 0x28, 0, 0, 0x0000000c },
 		{ 0x15, 0, 10, 0x00000800 },
 		{ 0x20, 0, 0, 0x0000001e },
-		{ 0x15, 0, 8, 0xc0a80a8a },
+		{ 0x15, 0, 8, 0xc0a80a9d },
 		{ 0x30, 0, 0, 0x00000017 },
 		{ 0x15, 0, 6, 0x00000011 },
 		{ 0x28, 0, 0, 0x00000014 },
@@ -140,7 +144,7 @@ int OFP_SOCK_INIT(char *if_name, char *ctrl_ip)
  *
  * iov structure will provide the memory, so parameter pBuf doesn't need to care it.
  **************************************************************************/
-void ofp_sockd_cp(void)
+void ofp_sockd_cp(tOFP_PORT *port_ccb)
 {
 	int			n,rxlen;
 	tOFP_MSG 	msg;

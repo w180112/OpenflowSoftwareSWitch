@@ -79,7 +79,7 @@ void ofp_cmd(void)
 
 const cmd_list_t *cmd_lookup(const char *cmd)
 {
-	for (int i=0; i<sizeof(cmd_list)/sizeof(cmd_list[0]); i++) {
+	for (long unsigned int i=0; i<sizeof(cmd_list)/sizeof(cmd_list[0]); i++) {
 		if (!strcmp(cmd,cmd_list[i].name))
 			return &cmd_list[i];
 	}
@@ -89,11 +89,8 @@ const cmd_list_t *cmd_lookup(const char *cmd)
 
 int8_t cmd_parse(char ofp_cli[], int *count, char argument[4][64])
 {
- 	char  *str = NULL,
-
-  	*delim = " ",
-  	*token = NULL,
-   	*rest_of_str = NULL;
+ 	char  *str = NULL, *token = NULL, *rest_of_str = NULL;
+ 	const char *delim = " ";
 
 	*count = 0;
  	str = strdup(ofp_cli);
@@ -142,7 +139,7 @@ static int cmd_addbr(int argc, char argv[4][64])
 	switch (err = br_add_bridge(argv[1])) {
 	case 0:
 		cli_2_ofp.opcode = ADD_BR;
-		strncpy(cli_2_ofp.brname,argv[1],64);
+		strncpy(cli_2_ofp.brname,argv[1],15);
 		if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
 			return 0;
 		return 1;
@@ -168,7 +165,7 @@ static int cmd_delbr(int argc, char argv[4][64])
 	switch (err = br_del_bridge(argv[1])) {
 	case 0:
 		cli_2_ofp.opcode = DEL_BR;
-		strncpy(cli_2_ofp.brname,argv[1],64);
+		strncpy(cli_2_ofp.brname,argv[1],15);
 		if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
 			return 0;
 		return 1;
@@ -203,15 +200,15 @@ static int cmd_addif(int argc, char argv[4][64])
 
 	while (argc-- > 0) {
 		const char *ifname = *++argv;
-		err = 0;//br_add_interface(brname, ifname);
+		err = br_add_interface(brname, ifname);
 
 		switch(err) {
 		case 0:
 			cli_2_ofp.opcode = ADD_IF;
-			strncpy(cli_2_ofp.brname,brname,64);
-			strncpy(cli_2_ofp.ifname,ifname,64);
+			strncpy(cli_2_ofp.brname,brname,15);
+			strncpy(cli_2_ofp.ifname,ifname,15);
 			ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t));
-			printf("<%d at ofp_cmd.c\n", __LINE__);
+			//printf("<%d at ofp_cmd.c\n", __LINE__);
 			continue;
 		case ENODEV:
 			if (if_nametoindex(ifname) == 0)
@@ -258,10 +255,10 @@ static int cmd_delif(int argc, char argv[4][64])
 		switch (err) {
 		case 0:
 			cli_2_ofp.opcode = DEL_IF;
-			strncpy(cli_2_ofp.brname,argv[1],64);
-			strncpy(cli_2_ofp.ifname,ifname,64);
-			if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE);
-			continue;
+			strncpy(cli_2_ofp.brname,argv[1],15);
+			strncpy(cli_2_ofp.ifname,ifname,15);
+			if (ofp_cmd2mailbox((U8 *)&cli_2_ofp,sizeof(cli_2_ofp_t)) == TRUE)
+				continue;
 
 		case ENODEV:
 			if (if_nametoindex(ifname) == 0)

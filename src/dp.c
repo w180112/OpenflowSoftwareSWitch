@@ -29,6 +29,7 @@ extern STATUS print_field(void **cur, uint16_t *type);
 extern sem_t 				*sem;
 extern tDP_MSG 				*dp_buf;
 extern int					*post_index, *pre_index;
+extern dp_io_fds_t			*dp_io_fds_head;
 
 void dp(tIPC_ID dpQid);
 STATUS enq_pkt_in(tOFP_MBX *mail, q_t **head, int id);
@@ -37,12 +38,13 @@ STATUS dp_send2ofp(U8 *mu, int mulen);
 void dp(tIPC_ID dpQid)
 {
 	tOFP_MBX		*mail;
+	tany2ofp_MSG 	msg_2_ofp;
 	tMBUF   		mbuf;
 	int				msize;
 	U16				ipc_type;
 	int 			ret;
 	q_t				*q_head = NULL;
-	int 			total_enq_node = 0;
+	uint32_t 		total_enq_node = 0;
 	dp_io_fds_t		*dp_io_fds_head = NULL;
 	pthread_t 		dp_thread = 0;
 	uint32_t 		buffer_id, id = 1;
@@ -63,15 +65,11 @@ void dp(tIPC_ID dpQid)
 		switch(ipc_type){
 		case IPC_EV_TYPE_DRV:
 			/* recv pkts from dp */
-			//mail = (tOFP_MBX*)mbuf.mtext;
+			mail = (tOFP_MBX*)mbuf.mtext;
 			msg = (tDP_MSG *)(dp_buf + atomic_int32_add_after(*pre_index, 0));
-			//printf("msg = %x\n", msg);
 			*pre_index = atomic_int32_add_after(*pre_index, 1);
-			//printf("*pre_index = %d\n", *pre_index);
 			if (*pre_index >= PKT_BUF) {
-				//printf("*pre_index = %d\n", *pre_index);
 				atomic_int32_sub_after(*pre_index, 1);
-				//printf("*pre_index = %d\n", *pre_index);
 				sem_wait(sem);
 				*pre_index = 0;
 				sem_post(sem);
@@ -96,7 +94,6 @@ void dp(tIPC_ID dpQid)
 				}
 				else
 					id = OFP_NO_BUFFER;
-				tDP2OFP_MSG msg_2_ofp;
 				msg_2_ofp.id = id;
 				memcpy(msg_2_ofp.buffer, (U8 *)msg, (msg->len) + sizeof(tDP_MSG) - ETH_MTU);
 				//printf("<%d send packet_in\n", __LINE__);

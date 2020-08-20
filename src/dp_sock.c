@@ -25,7 +25,9 @@ int 						max_fd;
 extern sem_t 				*sem;
 extern tDP_MSG 				*dp_buf;
 extern int					*post_index, *pre_index;
+extern tOFP_PORT			ofp_ports[MAX_USER_PORT_NUM+1]; 
 
+void dp_drv_xmit(U8 *mu, U16 mulen, uint32_t port_id, uint32_t in_port, dp_io_fds_t *dp_io_fds_head);
 /**************************************************************************
  * DP_SOCK_INIT :
  *
@@ -132,7 +134,7 @@ int DP_SOCK_INIT(char *ifname, uint32_t port_id, dp_io_fds_t **dp_io_fds_head)
 	for(cur_io_fd=dp_io_fds_head; *cur_io_fd!=NULL; cur_io_fd=&(*cur_io_fd)->next);
 	dp_io_fds_t *new_node = (dp_io_fds_t *)malloc(sizeof(dp_io_fds_t));
 	new_node->fd = fd;
-	strncpy(new_node->ifname,ifname,strlen(ifname));
+	strncpy(new_node->ifname, ifname, IFNAMSIZ-1);
 	new_node->port_no = port_id;
 	new_node->next = *cur_io_fd;
 	new_node->pkt_count = 0;

@@ -17,6 +17,9 @@ STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds
 STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_t *type);
 STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index);
 STATUS flowmod_action_process(flowmod_info_t flowmod_info, uint32_t flow_index);
+STATUS find_flow(U8* mu, U16 mulen, uint32_t port_id, uint32_t *flow_index);
+uint16_t find_index(U8 *info, int len);
+STATUS print_field(void **cur, uint16_t *type);
 
 STATUS find_flow(U8* mu, U16 mulen, uint32_t port_id, uint32_t *flow_index)
 {
@@ -220,7 +223,7 @@ STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_
 			*cur = (void *)(((ip_proto_t *)(*cur))->next);
 			break;
 		case DST_PORT:
-			if (((struct ethhdr *)mu)->h_proto != htons(IP_PROTO) || ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_TCP || ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_UDP)
+			if (((struct ethhdr *)mu)->h_proto != htons(IP_PROTO) || (((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_TCP && ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_UDP))
 				return FALSE;
 			dst_port = ntohs(*(uint16_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1));
 			if (BYTES_CMP((U8 *)&dst_port,(U8 *)&(((dst_port_t *)(*cur))->dst_port),2) == FALSE)
@@ -231,7 +234,7 @@ STATUS flow_type_cmp(U8 *mu, U16 mulen, uint32_t in_port_id, void **cur, uint16_
 			*cur = (void *)(((dst_port_t *)(*cur))->next);
 			break;
 		case SRC_PORT:
-			if (((struct ethhdr *)mu)->h_proto != htons(IP_PROTO) || ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_TCP || ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_UDP)
+			if (((struct ethhdr *)mu)->h_proto != htons(IP_PROTO) || (((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_TCP && ((struct iphdr *)(((struct ethhdr *)mu)+1))->protocol != IPPROTO_UDP))
 				return FALSE;
 			src_port = ntohs(*(((uint16_t *)(((struct iphdr *)(((struct ethhdr *)mu) + 1)) + 1)) + 1));
 			if (BYTES_CMP((U8 *)&src_port,(U8 *)&(((src_port_t *)(*cur))->src_port),2) == FALSE)
@@ -261,11 +264,14 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 		//printf("hash id = %u hash type = %u\n", hash_index, hash_type);
 	}
 	
-	for(uint32_t i=hash_index; i<TABLE_SIZE; i++) {
+	for(uint32_t i=hash_index;;) {
 		if (flowmod_info.command == OFPFC_ADD) {
+			if (i >= TABLE_SIZE)
+             	i -= TABLE_SIZE;
+         	if (hash_index - i == 1)
+             	return FALSE;
 			if (flow[i].is_exist == TRUE) {
 				if (flow[i].hash_type == hash_type) 
-					//TODO: change DST mac and SRC mac should not be treated as same flow
 					return FALSE;
 				else {
 					if (i >= (TABLE_SIZE - 1))
@@ -483,6 +489,7 @@ STATUS flowmod_match_process(flowmod_info_t flowmod_info, uint32_t *flow_index)
 					break;
 				}
 			}
+			i++;
 		}
 	}
 	return FALSE;
@@ -719,12 +726,12 @@ STATUS print_field(void **cur, uint16_t *type)
 			*cur = (void *)(((ether_type_t *)(*cur))->next);
 			break;
 		case DST_IP:
-			printf("dst_ip = %u", ((dst_ip_t *)(*cur))->dst_ip);
+			printf("dst_ip = %u %u %u %u", ((((dst_ip_t *)(*cur))->dst_ip) >> 24) & 0xFF, ((((dst_ip_t *)(*cur))->dst_ip) >> 16) & 0xFF, ((((dst_ip_t *)(*cur))->dst_ip) >> 8) & 0xFF, (((dst_ip_t *)(*cur))->dst_ip) & 0xFF);
 			*type = ((dst_ip_t *)(*cur))->type;
 			*cur = (void *)(((dst_ip_t *)(*cur))->next);
 			break;
 		case SRC_IP:
-			printf("src_ip = %u", ((src_ip_t *)(*cur))->src_ip);
+			printf("src_ip = %u %u %u %u", ((((src_ip_t *)(*cur))->src_ip) >> 24) & 0xFF, ((((src_ip_t *)(*cur))->src_ip) >> 16) & 0xFF, ((((src_ip_t *)(*cur))->src_ip) >> 8) & 0xFF, (((src_ip_t *)(*cur))->src_ip) & 0xFF);
 			*type = ((src_ip_t *)(*cur))->type;
 			*cur = (void *)(((src_ip_t *)(*cur))->next);
 			break;

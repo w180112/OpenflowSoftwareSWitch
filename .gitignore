@@ -1,2 +1,5 @@
 .DS_Store
-.vscode/*
+.vscode
+lib/dpdk-stable-19.11.3
+vgcore*
+src/build

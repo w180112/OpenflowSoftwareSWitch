@@ -10,6 +10,8 @@
 #define MSG_LEN					4074
 #define TABLE_SIZE 				1024
 
+extern void 		dp(tIPC_ID dpQid);
+
 /*-----------------------------------------
  * msg from dp sock
  *----------------------------------------*/
@@ -26,6 +28,6 @@ typedef struct {
 typedef struct {
 	int   			id;
 	char          	buffer[MSG_LEN];
-}tDP2OFP_MSG;
+}tany2ofp_MSG;
 
 #endif

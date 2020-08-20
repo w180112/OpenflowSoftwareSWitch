@@ -18,16 +18,14 @@
 #include 		"ofp_oxm.h"
 #include 		<unistd.h>
 
-STATUS parse_tcp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id, uint32_t *flow_index);
-STATUS parse_udp(struct ethhdr *eth_hdr, struct iphdr *ip_hdr, uint16_t port_id, uint32_t *flow_index);
-STATUS parse_ip(struct ethhdr *eth_hdr, uint16_t port_id, uint32_t *flow_index);
-
 extern flow_t flow[TABLE_SIZE];
 
 extern STATUS find_flow(U8 *mu, U16 mulen, uint32_t port_id, uint32_t *flow_index);
 extern STATUS apply_flow(U8 *mu, U16 mulen, uint32_t flow_index, dp_io_fds_t *dp_io_fds_head);
 extern void dp_drv_xmit(U8 *mu, U16 mulen, uint32_t port_id, uint32_t in_port, dp_io_fds_t *dp_io_fds_head);
 
+STATUS pkt_out_process(packet_out_info_t packet_out_info, dp_io_fds_t *dp_io_fds_head);
+STATUS DP_decode_frame(tDP_MSG *msg, dp_io_fds_t *dp_io_fds_head, uint32_t *buffer_id);
 /*============================ DECODE ===============================*/
 
 /*****************************************************

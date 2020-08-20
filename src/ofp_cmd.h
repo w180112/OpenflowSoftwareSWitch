@@ -10,12 +10,15 @@
 extern "C" {
 #endif
 
+#include "ofp_sock.h"
+
 enum {
     ADD_BR = 0,
     DEL_BR,
     ADD_IF,
     DEL_IF,
     SHOW_FLOW,
+    SHOW_TUPLE,
 };
 
 typedef struct cmd_list {
@@ -27,8 +30,8 @@ typedef struct cmd_list {
 
 typedef struct cli_2_ofp {
     uint8_t opcode;
-    char brname[64];
-    char ifname[64];
+    char brname[16];
+    char ifname[16];
     uint32_t port_id;
     char msg[256];
 }cli_2_ofp_t;

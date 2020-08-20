@@ -10,7 +10,7 @@
 #define	DBGLVL1		1
 #define DBGLVL2		2
 
-extern 	void 		DBG_OFP(U8 level, tOFP_PORT *port_ccb, char *fmt,...);
+extern 	void 		DBG_OFP(U8 level, tOFP_PORT *port_ccb, const char *fmt,...);
 extern  char 		*OFP_state2str(U16 state);
 extern  U8       	ofpDbgFlag;
 #endif

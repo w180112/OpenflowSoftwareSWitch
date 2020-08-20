@@ -18,10 +18,12 @@
 #include 		<unistd.h>
 #include 		<signal.h>
 
-void 	OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
-STATUS 	OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
-STATUS 	OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
-STATUS OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
+void 			OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb);
+STATUS 			OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen, uint8_t tuple_mask[], uint16_t *match_type);
+STATUS 			OFP_decode_packet_out(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
+STATUS 			OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, U16 mulen);
+STATUS 			OFP_encode_port_status(tOFP_MBX *mail, tOFP_PORT *port_ccb, uint32_t *port);
+extern STATUS 	add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], uint16_t match_type);
 
 extern pid_t ofp_cp_pid;
 extern pid_t ofp_dp_pid;
@@ -46,6 +48,8 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
     U16			mulen;
 	U8			*mu;
 	tOFP_MSG 	*msg;
+	uint8_t		tuple_mask[4] = {0};
+ 	uint16_t 	match_type = 0;
 
 	msg = (tOFP_MSG *)(mail->refp);
 	port_ccb->sockfd = msg->sockfd;
@@ -53,7 +57,7 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 	mulen = (mail->len) - (sizeof(int) + 1);
 	
 	if (mulen > ETH_MTU) {
-	    DBG_OFP(DBGLVL1,0,"error! too large frame(%d)\n",mail->len);
+	    DBG_OFP(DBGLVL1, 0, "error! too large frame(%d)\n", mulen);
 	    return ERROR;
 	}
 
@@ -67,9 +71,11 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
     //PRINT_MESSAGE(mu,mulen);
 	memcpy(tmp_buf_ptr,mu,mulen);
 	tmp_buf_ptr += mulen;
+	//printf("<%d at %s\n", __LINE__, __FILE__);
 	//PRINT_MESSAGE(tmp_buf,tmp_buf_ptr - tmp_buf);
 	for(U16 ofp_len=0; ofp_len<(tmp_buf_ptr-tmp_buf);) {
 		//printf("ofp_len = %u, tmp_buf_ptr-tmp_buf = %u\n", ofp_len, tmp_buf_ptr-tmp_buf);
+		//printf("<%d at %s\n", __LINE__, __FILE__);
 		switch(((ofp_header_t *)(tmp_buf+ofp_len))->type) {
 		case OFPT_HELLO:
 			printf("----------------------------------\nrecv hello msg\n");
@@ -92,15 +98,19 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 		case OFPT_FLOW_MOD:
 			port_ccb->event = E_FLOW_MOD;
 			//PRINT_MESSAGE(tmp_buf+ofp_len, mulen);
-			//printf("----------------------------------\nrecv flow mod\n");
-			OFP_decode_flowmod(port_ccb, tmp_buf+ofp_len, ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length));
-			//printf("<%d at ofp_codec.c\n", __LINE__);
+			printf("----------------------------------\nrecv flow mod\n");
+			OFP_decode_flowmod(port_ccb, tmp_buf+ofp_len, ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length), tuple_mask, &match_type);
+ 			//printf("<%d at %s\n", __LINE__, __FILE__);
+			add_huge_flow_table(port_ccb->flowmod_info, tuple_mask, match_type);
+			//printf("<%d at %s\n", __LINE__, __FILE__);
 			break;
 		case OFPT_PACKET_OUT:
 			port_ccb->event = E_PACKET_OUT;
 			//printf("----------------------------------\nrecv packet out\n");
 			//PRINT_MESSAGE(mu, mulen);
+			//printf("<%d at %s\n", __LINE__, __FILE__);
 			OFP_decode_packet_out(port_ccb, tmp_buf+ofp_len, ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length));
+			//printf("<%d at %s\n", __LINE__, __FILE__);
 			break;
 		default:
 			port_ccb->event = E_OTHERS;
@@ -110,6 +120,7 @@ STATUS OFP_decode_frame(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 		OFP_FSM(port_ccb, port_ccb->event);
 		//printf("<%d at ofp_codec.c\n", __LINE__);
 		if ((tmp_buf_ptr - tmp_buf - ofp_len) < 4 || (tmp_buf_ptr - tmp_buf - ofp_len) < ntohs(((ofp_header_t *)(tmp_buf+ofp_len))->length)) {
+			//printf("<%d at %s\n", __LINE__, __FILE__);
 			memcpy(tmp_buf,tmp_buf+ofp_len,tmp_buf_ptr-tmp_buf-ofp_len);
 			tmp_buf_ptr = tmp_buf + (tmp_buf_ptr - tmp_buf - ofp_len);
 			break;
@@ -124,10 +135,10 @@ void OFP_encode_packet_in(tOFP_MBX *mail, tOFP_PORT *port_ccb)
 {
 	U16			mulen;
 	U8			*mu;
-	tDP2OFP_MSG *msg;
+	tany2ofp_MSG *msg;
 	int 		buffer_id;
 
-	msg = (tDP2OFP_MSG *)(mail->refp);
+	msg = (tany2ofp_MSG *)(mail->refp);
 	//ofp_ports[0].sockfd = msg->sockfd;
 	mu = (U8 *)(((tDP_MSG *)(msg->buffer))->buffer);
 	mulen = ((tDP_MSG *)(msg->buffer))->len;
@@ -285,10 +296,11 @@ STATUS OFP_encode_multipart_reply(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	return TRUE;
 }
 
-STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen) 
+STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen, uint8_t tuple_mask[], uint16_t *match_type) 
 {
 	ofp_instruction_actions_t *ofp_instruction_actions;
 	uint16_t left_len;
+	int shift_count = 0;
 
 	port_ccb->flowmod_info.msg_type = FLOWMOD;
 	port_ccb->flowmod_info.msg_len = sizeof(flowmod_info_t);
@@ -301,7 +313,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	port_ccb->flowmod_info.out_port = ntohl(((ofp_flow_mod_t *)mu)->out_port);
 	port_ccb->flowmod_info.priority = ntohs(((ofp_flow_mod_t *)mu)->priority);
 	port_ccb->flowmod_info.table_id = ((ofp_flow_mod_t *)mu)->table_id;
-	left_len = ntohs(((ofp_flow_mod_t *)mu)->header.length);
+	left_len = ntohs(((ofp_flow_mod_t *)mu)->header.length) - sizeof(ofp_flow_mod_t) + sizeof(struct ofp_match);
 
 	//PRINT_MESSAGE((unsigned char *)&(((ofp_flow_mod_t *)mu)->match), 32);
 	uint16_t match_len = ntohs(((ofp_flow_mod_t *)mu)->match.length) - (sizeof(((ofp_flow_mod_t *)mu)->match.length) + sizeof(((ofp_flow_mod_t *)mu)->match.type));
@@ -316,6 +328,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 		//PRINT_MESSAGE(&(((ofp_flow_mod_t *)mu)->match.oxm_header), match_len);
 		/* sotre match fields with a for loop, in each time loop we store match types */
 		for(ofp_oxm_header_t *cur = &(((ofp_flow_mod_t *)mu)->match.oxm_header); match_len>0; i++) {
+			shift_count = 0;
 			if (i > 20) { // we only store up to 20 match fields
 				puts("reach max match field limit");
 				break;
@@ -328,31 +341,56 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 				//printf("match port id = %u\n", port_ccb->flowmod_info.match_info[i].port_id);
 				if (cur->oxm_union.oxm_struct.oxm_hasmask) {
 					uint32_t mask = ntohl(*(uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t) + sizeof(uint32_t)));
-					memcpy(port_ccb->flowmod_info.match_info[i].mask, &mask, sizeof(uint32_t));
+					memcpy(&(port_ccb->flowmod_info.match_info[i].mask), &mask, sizeof(uint32_t));
 				}
+				*match_type |= 1;
 				break;
 			case OFPXMT_OFB_ETH_DST:
 				memcpy(port_ccb->flowmod_info.match_info[i].dst_mac, (U8 *)cur + sizeof(ofp_oxm_header_t), ETH_ALEN);
 				port_ccb->flowmod_info.match_info[i].type = DST_MAC;
 				//printf("fill match field dst_mac= %x\n", port_ccb->flowmod_info.match_info[i].dst_mac[0]);
-				if (cur->oxm_union.oxm_struct.oxm_hasmask)
-					memcpy(port_ccb->flowmod_info.match_info[i].mask, ((U8 *)cur + sizeof(ofp_oxm_header_t) + ETH_ALEN), ETH_ALEN);
+				if (cur->oxm_union.oxm_struct.oxm_hasmask) {
+ 					memcpy(&(port_ccb->flowmod_info.match_info[i].mask), ((U8 *)cur + sizeof(ofp_oxm_header_t) + ETH_ALEN), ETH_ALEN);
+ 					for(port_ccb->flowmod_info.match_info[i].mask>>=2; port_ccb->flowmod_info.match_info[i].mask ^ 1;) {
+ 						port_ccb->flowmod_info.match_info[i].mask >>= 1;
+         				shift_count++;
+ 					}
+ 					port_ccb->flowmod_info.match_info[i].mask = 1 << (shift_count + 2);
+ 				}
+ 				else 
+ 					shift_count = 48;
+ 				tuple_mask[0] = shift_count;
+				*match_type |= 2;
+				port_ccb->flowmod_info.match_info[i].mask_len = tuple_mask[0];
 				break;
 			case OFPXMT_OFB_ETH_SRC:
 				memcpy(port_ccb->flowmod_info.match_info[i].src_mac, (U8 *)cur + sizeof(ofp_oxm_header_t), ETH_ALEN);
 				port_ccb->flowmod_info.match_info[i].type = SRC_MAC;
 				//printf("fill match field src_mac= %x\n", port_ccb->flowmod_info.match_info[i].src_mac[0]);
-				if (cur->oxm_union.oxm_struct.oxm_hasmask)
-					memcpy(port_ccb->flowmod_info.match_info[i].mask, ((U8 *)cur + sizeof(ofp_oxm_header_t) + ETH_ALEN), ETH_ALEN);
+				if (cur->oxm_union.oxm_struct.oxm_hasmask) {
+ 					memcpy(&(port_ccb->flowmod_info.match_info[i].mask), ((U8 *)cur + sizeof(ofp_oxm_header_t) + ETH_ALEN), ETH_ALEN);
+ 					for(port_ccb->flowmod_info.match_info[i].mask>>=2; port_ccb->flowmod_info.match_info[i].mask ^ 1;) {
+ 						port_ccb->flowmod_info.match_info[i].mask >>= 1;
+         				shift_count++;
+ 					}
+ 					port_ccb->flowmod_info.match_info[i].mask = 1 << (shift_count + 2);
+ 				}
+ 				else 
+ 					shift_count = 48;
+ 				tuple_mask[1] = shift_count;
+				*match_type |= 2;
+				port_ccb->flowmod_info.match_info[i].mask_len = tuple_mask[1];
 				break;
 			case OFPXMT_OFB_ETH_TYPE:
 				port_ccb->flowmod_info.match_info[i].ether_type = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = ETHER_TYPE;
 				printf("fill match field eth_type= %u\n", port_ccb->flowmod_info.match_info[i].ether_type);
+				*match_type |= 2;
 				break;
 			case OFPXMT_OFB_IP_PROTO:
 				port_ccb->flowmod_info.match_info[i].ip_proto = *(U8 *)((U8 *)cur + sizeof(ofp_oxm_header_t));
 				port_ccb->flowmod_info.match_info[i].type = IP_PROTO;
+				*match_type |= 4;
 				break;
 			case OFPXMT_OFB_IPV4_SRC:
 				port_ccb->flowmod_info.match_info[i].ip_src = ntohl(*((uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
@@ -360,32 +398,56 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 				printf("match ip src = %u\n", port_ccb->flowmod_info.match_info[i].ip_src);
 				if (cur->oxm_union.oxm_struct.oxm_hasmask) {
 					uint32_t mask = ntohl(*(uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t) + sizeof(uint32_t)));
-					memcpy(port_ccb->flowmod_info.match_info[i].mask, &mask, sizeof(uint32_t));
+					memcpy(&(port_ccb->flowmod_info.match_info[i].mask), &mask, sizeof(uint32_t));		
+ 					for(port_ccb->flowmod_info.match_info[i].mask>>=4; port_ccb->flowmod_info.match_info[i].mask ^ 1;) {
+ 						port_ccb->flowmod_info.match_info[i].mask >>= 1;
+         				shift_count++;
+ 					}
+ 					port_ccb->flowmod_info.match_info[i].mask = 1 << (shift_count + 4);
 				}
+				else 
+ 					shift_count = 32;
+ 				tuple_mask[2] = shift_count;
+				*match_type |= 4;
+				port_ccb->flowmod_info.match_info[i].mask_len = tuple_mask[2];
 				break;
 			case OFPXMT_OFB_IPV4_DST:
 				port_ccb->flowmod_info.match_info[i].ip_dst = ntohl(*((uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = DST_IP;
 				if (cur->oxm_union.oxm_struct.oxm_hasmask) {
 					uint32_t mask = ntohl(*(uint32_t *)((U8 *)cur + sizeof(ofp_oxm_header_t) + sizeof(uint32_t)));
-					memcpy(port_ccb->flowmod_info.match_info[i].mask, &mask, sizeof(uint32_t));
+					memcpy(&(port_ccb->flowmod_info.match_info[i].mask), &mask, sizeof(uint32_t));
+ 					for(port_ccb->flowmod_info.match_info[i].mask>>=4; port_ccb->flowmod_info.match_info[i].mask ^ 1;) {
+ 						port_ccb->flowmod_info.match_info[i].mask >>= 1;
+         				shift_count++;
+ 					}
+ 					port_ccb->flowmod_info.match_info[i].mask = 1 << (shift_count + 4);
 				}
+				else 
+ 					shift_count = 32;
+ 				tuple_mask[3] = shift_count;
+				*match_type |= 4;
+				port_ccb->flowmod_info.match_info[i].mask_len = tuple_mask[3];
 				break;
 			case OFPXMT_OFB_TCP_SRC:
 				port_ccb->flowmod_info.match_info[i].src_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = SRC_PORT;
+				*match_type |= 8;
 				break;
 			case OFPXMT_OFB_TCP_DST:
 				port_ccb->flowmod_info.match_info[i].dst_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = DST_PORT;
+				*match_type |= 8;
 				break;
 			case OFPXMT_OFB_UDP_SRC:
 				port_ccb->flowmod_info.match_info[i].src_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = SRC_PORT;
+				*match_type |= 8;
 				break;
 			case OFPXMT_OFB_UDP_DST:
 				port_ccb->flowmod_info.match_info[i].dst_port = ntohs(*((uint16_t *)((U8 *)cur + sizeof(ofp_oxm_header_t))));
 				port_ccb->flowmod_info.match_info[i].type = DST_PORT;
+				*match_type |= 8;
 				break;
 			default:
 				return FALSE;
@@ -412,7 +474,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 	//printf("padding = %u\n", padding);
 	left_len -= padding;
 	ofp_instruction_actions = (ofp_instruction_actions_t *)(mu + sizeof(ofp_flow_mod_t) - sizeof(struct ofp_match) + padding);
-	if (ofp_instruction_actions->type != OFPIT_APPLY_ACTIONS || ofp_instruction_actions->type != OFPIT_WRITE_ACTIONS)
+	if (ofp_instruction_actions->type != htons(OFPIT_APPLY_ACTIONS) && ofp_instruction_actions->type != htons(OFPIT_WRITE_ACTIONS))
 		/* We only support OFPIT_APPLY_ACTIONS and OFPIT_WRITE_ACTIONS.
 		OFPIT_APPLY_ACTIONS is apply actions immediately, and OFPIT_WRITE_ACTIONS is apply actions at last. */
 		return FALSE;
@@ -431,6 +493,7 @@ STATUS OFP_decode_flowmod(tOFP_PORT *port_ccb, U8 *mu, U16 mulen)
 		}
 		//printf("total len = %u %u\n", len, action_len);
 		if (len == action_len) {
+			left_len -= ntohs(ofp_instruction_actions->len);
 			if (left_len == 0)
 				break;
 			else {

@@ -300,7 +300,7 @@ int get_local_mac(U8 *mac, char *sif)
        return -1;
     }
     
-    strncpy(sifreq.ifr_name, sif, IF_NAMESIZE);
+    strncpy(sifreq.ifr_name, sif, IF_NAMESIZE-1);
     if (ioctl(fd, SIOCGIFHWADDR, &sifreq) != 0){
         printf("error! ioctl failed when getting mac\n");
         close(fd);
@@ -330,7 +330,7 @@ int get_local_ip(U8 *ip_str, char *sif)
         return -1;
     }
     
-    strncpy(ifr.ifr_name, sif, IF_NAMESIZE);    
+    strncpy(ifr.ifr_name, sif, IF_NAMESIZE-1);    
     if (ioctl(fd, SIOCGIFADDR, &ifr) < 0) {
         perror("ioctl SIOCGIFADDR error");
         return -1;
@@ -366,7 +366,7 @@ int set_local_ip(char *ip_str, char *sif)
     bzero(&mask,sizeof(mask));  
  
     //sprintf(ifr.ifr_name, sif); 
-    strncpy(ifr.ifr_name, sif, IF_NAMESIZE);  
+    strncpy(ifr.ifr_name, sif, IF_NAMESIZE-1);  
     addr.sin_family = AF_INET; 
     addr.sin_addr.s_addr = inet_addr(ip_str); 
     //printf("addr.sin_addr.s_addr=%x\n",addr.sin_addr.s_addr); 
@@ -422,7 +422,7 @@ int ethernet_interface(const char *const name, int *const index, int *const spee
         return errno = err;
     }
 
-    strncpy(ifr.ifr_name, name, sizeof ifr.ifr_name);
+    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name)-1);
     ifr.ifr_data = (void *)&cmd;
     cmd.cmd = ETHTOOL_GSET;
     if (ioctl(fd, SIOCETHTOOL, &ifr) < 0) {
@@ -611,6 +611,11 @@ void  PRINT_MESSAGE(unsigned char *msg, int len)
 	printf("\n");
 }
 
+/*----------------------------------------------------------------------
+ * BYTES_CMP
+ *
+ * Note: compare *arg1 and *arg2 with length arg3, if the result is equal, then return TURE, else return FALSE
+ *---------------------------------------------------------------------*/
 STATUS BYTES_CMP(U8 *var1, U8 *var2, U32 len)
 {
     for(U32 i=0; i<len; i++) {
@@ -618,4 +623,25 @@ STATUS BYTES_CMP(U8 *var1, U8 *var2, U32 len)
 			return FALSE;
 	}
     return TRUE;
+}
+
+int32_t hash_func(unsigned char *key, size_t len)
+{
+    int32_t hash, i; 
+    for (hash = i = 0; i<len; ++i) {
+        hash += key[i];
+        hash += hash << 10;
+        hash ^= hash >> 6;
+    }
+    hash += hash << 3;
+    hash ^= hash >> 11;
+    hash += hash << 15;
+    
+    return ((hash>>31)^hash) - (hash>>31);
+}
+
+int abs_int32(int *x)
+{
+    // x < 0 ? -x : x;
+    return (*x ^ (*x >> 31)) - (*x >> 31);
 }

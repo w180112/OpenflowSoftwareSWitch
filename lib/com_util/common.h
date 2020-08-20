@@ -87,7 +87,7 @@ typedef  		void   				(*VOIDFUNCPTR)(void);   //return void
 #define 		IF_NAMESIZE 		16
 
 //#pragma pack(push)				/* push current alignment to stack */
-#pragma 		pack(1) 			/* set alignment to 1 byte boundary */
+//#pragma 		pack(1) 			/* set alignment to 1 byte boundary */
 //struct ....
 //#pragma pack(pop) 				/* restore original alignment from stack */
 

@@ -13,6 +13,8 @@
 #include <linux/in.h>
 #include <stdint.h>
 #include "dp.h"
+#include "dp_codec.h"
+#include <common.h>
 
 enum {
 	PORT = 1 << 0,
@@ -105,7 +107,6 @@ typedef struct src_port {
 typedef struct pkt_info {
 	uint16_t type;
 	uint32_t port_id;
-	//struct ethhdr eth_hdr;
 	unsigned char dst_mac[ETH_ALEN];
 	unsigned char src_mac[ETH_ALEN];
 	uint16_t ether_type;
@@ -114,8 +115,14 @@ typedef struct pkt_info {
 	uint8_t ip_proto;
 	uint16_t dst_port;
 	uint16_t src_port;
-	uint8_t mask[6];
+	uint64_t mask;
+	uint8_t mask_len;
 	uint16_t max_len; /* for OFPCML_MAX or OFPCML_NO_BUFFER or 0 */
+	/*table_flow_info_t table_flow_info;
+    table_mac_t table_mac;
+    table_ip_t table_ip;
+    table_in_port_t table_in_port;
+    table_port_t table_port;*/
 	BOOL	is_tail;
 }pkt_info_t;
 

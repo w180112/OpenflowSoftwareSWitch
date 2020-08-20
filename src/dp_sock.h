@@ -10,6 +10,7 @@
 #include		<sys/socket.h>
 #include 		<sys/types.h> 
 #include 		<netinet/in.h>
+#include 		"ofpd.h"
 
 typedef struct dp_io_fds {
 	int 				fd;

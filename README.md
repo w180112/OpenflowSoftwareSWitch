@@ -64,5 +64,3 @@ To remove the binary files
 
 1. implementation Flowmod type - "delete flow" and flow timeout.
 2. del bridge/port and make bridge can be joined into socket operation
-3. change IPC method
-4. provide UIO

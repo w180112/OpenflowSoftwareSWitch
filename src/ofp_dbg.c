@@ -17,7 +17,7 @@ U8       	ofpDbgFlag=1;
 /***************************************************
  * DBG_OFP:
  ***************************************************/	
-void DBG_OFP(U8 level, tOFP_PORT *port_ccb, char *fmt,...)
+void DBG_OFP(U8 level, tOFP_PORT *port_ccb, const char *fmt,...)
 {
 	va_list ap; /* points to each unnamed arg in turn */
 	char    buf[256],msg[DBG_OFP_MSG_LEN],sstr[20];
