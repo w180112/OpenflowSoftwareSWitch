@@ -29,7 +29,7 @@ STATUS add_huge_flow_table(flowmod_info_t flowmod_info, uint8_t tuple_mask[], ui
     int32_t hash_index = 0;
 	uint16_t hash_type = 0;
 	for(int i=0; i<20&&flowmod_info.match_info[i].type>0; i++) {
-		PRINT_MESSAGE(&(flowmod_info.match_info[i]),sizeof(pkt_info_t));
+		//PRINT_MESSAGE(&(flowmod_info.match_info[i]),sizeof(pkt_info_t));
 		hash_index += hash_func((U8*)&(flowmod_info.match_info[i]), sizeof(pkt_info_t)-1);
 		hash_type |= flowmod_info.match_info[i].type;
         //printf("hash id = %d hash type = %u\n", hash_index, hash_type);

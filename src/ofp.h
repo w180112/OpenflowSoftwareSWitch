@@ -7,7 +7,6 @@
 #define _OFP_H_
 
 #include <common.h>
-#include <rte_timer.h>
 #include "dp_flow.h"
 #include "ofp_common.h"
 #include "ofp_asyn.h"
